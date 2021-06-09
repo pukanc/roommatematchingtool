@@ -190,19 +190,8 @@ try:
     group1 = groupMaker("F3", "F4")
 except IndexError:
     print("[ERROR] Number of participants is not matching!")
-print(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list'))
-print(algorithm.find_matching(group1, matching_type = 'min', return_type = 'total'))
-#all the data will be stored here
-"""
-#Comparing all the people
-for member1 in range(80):
-    for member2 in range(1,80):
-        exe = allCategories(member1, member2)
-        storingDic.update({member2 : int(exe)})
-        if member2 == 79:
-            namesDict.update({member1 : storingDic})
-            storingDic = {}
-"""   
+outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')
+print(outcome)
 
 print("Done")
     
