@@ -1,5 +1,6 @@
 import json, time
 import excel2json
+from hungarian_algorithm import algorithm
 #all the questions here
 allOptionsList = ["Group", "Slovak", "Name ID", "Do you prefer to sleep with the window open?", 
 "How sensitive are you to the lights being ON while you are sleeping?", "How sensitive are you to sound/noise while you are sleeping?",
@@ -159,15 +160,50 @@ def categorySixteen(mainParticipant, otherparticipant):
 #Execution two ints, 
 def allCategories(mem1, mem2):
     together = categoryOne(mem1,mem2) + categoryTwo(mem1,mem2) + categoryThree(mem1,mem2) + categoryFourFive(mem1,mem2) + categorySix(mem1,mem2) + categorySevenEight(mem1,mem2) + categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2) + categoryFifteen(mem1,mem2) + categorySixteen(mem1,mem2)
-    return together * together 
-pairs = []
-usedUp = []
-lowest = 222
-memberNumber = 111
+    return together*together
+#Here will the data be stored
+
+#Making the groups of people, inputs two strings (Names of the groups)
+def groupMaker(group1, group2):
+    namesDict = {}
+    storingDic = {}
+    group1List = []
+    group2List = []
+    for group in range(80):
+        if lookForData("Group", group) == group1:
+            group1List.append(int(lookForData("Name ID", group) - 1))
+        elif lookForData("Group", group) == group2:
+            group2List.append(int(lookForData("Name ID", group) - 1))
+    #Need to add a check for len of lists
+    for lists1 in range(len(group1List)):
+        for lists in range(len(group1List)):
+            exe = allCategories(group1List[lists1], group2List[lists])
+            storingDic.update({group2List[lists] : int(exe)})
+            if lists == (len(group1List) - 1):
+                namesDict.update({group1List[lists1] : storingDic})
+                storingDic = {}
+    print(namesDict)
+    return(namesDict)
+
+
+try:
+    group1 = groupMaker("F3", "F4")
+except IndexError:
+    print("[ERROR] Number of participants is not matching!")
+print(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list'))
+print(algorithm.find_matching(group1, matching_type = 'min', return_type = 'total'))
+#all the data will be stored here
+"""
 #Comparing all the people
 for member1 in range(80):
     for member2 in range(1,80):
         exe = allCategories(member1, member2)
+        storingDic.update({member2 : int(exe)})
+        if member2 == 79:
+            namesDict.update({member1 : storingDic})
+            storingDic = {}
+"""   
+
 print("Done")
     
 
