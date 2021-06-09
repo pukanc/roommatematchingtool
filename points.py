@@ -1,7 +1,6 @@
 import json, time
 import excel2json
-#all the questions there are 
-atime = time.time()
+#all the questions here
 allOptionsList = ["Group", "Slovak", "Name ID", "Do you prefer to sleep with the window open?", 
 "How sensitive are you to the lights being ON while you are sleeping?", "How sensitive are you to sound/noise while you are sleeping?",
 "How important is it for you to play music on speaker in your room during the day?", 
@@ -42,7 +41,7 @@ def categoryOne(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     minus = mainP[3] - otherP[3]
     if minus < 0:
-        minus * (-1)
+        minus = minus * (-1)
     return minus * 2
 
 #Lights double, two integers needed 
@@ -51,7 +50,7 @@ def categoryTwo(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     minus = mainP[4] - otherP[4]
     if minus < 0:
-        minus * (-1)
+        minus = minus * (-1)
     return minus * 2
 #Sound senstivity, double points, two integers neeeded 
 def categoryThree(mainParticipant, otherparticipant):
@@ -59,7 +58,7 @@ def categoryThree(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     minus = mainP[5] - otherP[5]
     if minus < 0:
-        minus * (-1)
+        minus = minus * (-1)
     return minus * 2
 
 #Speaker music + Playing music, two integers -- Special case
@@ -70,10 +69,10 @@ def categoryFourFive(mainParticipant, otherparticipant):
     otherPq5 = 6 - otherP[7]
     calc1 = mainP[6] - otherPq5
     if calc1 < 0:
-        calc1 * (-1)
+        calc1 = calc1 * (-1)
     calc2 = mainPq5 - otherP[6]
     if calc2 < 0:
-        calc2 * (-1)
+        calc2 = calc2 * (-1)
     return calc1 + calc2
 
 #Cleanliness orderliness - double, two integers needed 
@@ -82,7 +81,7 @@ def categorySix(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     minus = mainP[8] - otherP[8]
     if minus < 0:
-        minus * (-1)
+        minus = minus * (-1)
     return minus * 2
 #Sharing of items, reversed special, two ints needed 
 
@@ -93,10 +92,10 @@ def categorySevenEight(mainParticipant, otherparticipant):
     otherPq5 = 6 - otherP[10]
     calc1 = mainP[9] - otherPq5
     if calc1 < 0:
-        calc1 * (-1)
+        calc1 = calc1 * (-1)
     calc2 = mainPq5 - otherP[9]
     if calc2 < 0:
-        calc2 * (-1)
+        calc2 = calc2 * (-1)
     return calc1 + calc2
 #Quiet space, reversed special, two ints neeeded 
 def categoryNineTen(mainParticipant, otherparticipant):
@@ -106,10 +105,10 @@ def categoryNineTen(mainParticipant, otherparticipant):
     otherPq5 = 6 - otherP[12]
     calc1 = mainP[11] - otherPq5
     if calc1 < 0:
-        calc1 * (-1)
+        calc1 = calc1 * (-1)
     calc2 = mainPq5 - otherP[11]
     if calc2 < 0:
-        calc2 * (-1)
+        calc2 = calc2 * (-1)
     return calc1 + calc2
 
 #Friends over, specia but not reversed, two ints are needed  
@@ -120,10 +119,10 @@ def categoryElevenTwelve(mainParticipant, otherparticipant):
     otherPq5 = otherP[14]
     calc1 = mainP[13] - otherPq5
     if calc1 < 0:
-        calc1 * (-1)
+        calc1 = calc1 * (-1)
     calc2 = mainPq5 - otherP[13]
     if calc2 < 0:
-        calc2 * (-1)
+        calc2 = calc2 * (-1)
     return calc1 + calc2
 
 #Living space, special but not reversed, two ints needed 
@@ -134,10 +133,10 @@ def categoryThirteenFourteen(mainParticipant, otherparticipant):
     otherPq5 = otherP[16]
     calc1 = mainP[15] - otherPq5
     if calc1 < 0:
-        calc1 * (-1)
+        calc1 = calc1 * (-1)
     calc2 = mainPq5 - otherP[15]
     if calc2 < 0:
-        calc2 * (-1)
+        calc2 = calc2 * (-1)
     return calc1 + calc2
 
 #Sleeping, double, two ints
@@ -146,7 +145,7 @@ def categoryFifteen(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     minus = mainP[17] - otherP[17]
     if minus < 0:
-        minus * (-1)
+        minus = minus * (-1)
     return minus * 2
 
 # Waking up, double, two ints
@@ -155,12 +154,12 @@ def categorySixteen(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     minus = mainP[17] - otherP[17]
     if minus < 0:
-        minus * (-1)
+        minus = minus * (-1)
     return minus * 2
 #Execution two ints, 
 def allCategories(mem1, mem2):
     together = categoryOne(mem1,mem2) + categoryTwo(mem1,mem2) + categoryThree(mem1,mem2) + categoryFourFive(mem1,mem2) + categorySix(mem1,mem2) + categorySevenEight(mem1,mem2) + categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2) + categoryFifteen(mem1,mem2) + categorySixteen(mem1,mem2)
-    return together 
+    return together * together 
 pairs = []
 usedUp = []
 lowest = 222
