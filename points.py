@@ -1,4 +1,4 @@
-import json, time
+import json, time, re
 import excel2json
 from hungarian_algorithm import algorithm
 #all the questions here
@@ -17,6 +17,7 @@ allOptionsList = ["Group", "Slovak", "Name ID", "Do you prefer to sleep with the
 "Do you prefer to have a roommate who spends a lot of time in the room, or mainly just comes to room to sleep?",
 "What time do you prefer to sleep?",
 "What time do you prefer to wake up?"]
+
 #Creates the JSON files
 data = excel2json.convert_from_file('prefs_table.xls')
 
@@ -45,7 +46,7 @@ def categoryOne(mainParticipant, otherparticipant):
         minus = minus * (-1)
     return minus * 2
 
-#Lights double, two integers needed 
+#Lights, double, two integers needed 
 def categoryTwo(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
@@ -161,7 +162,19 @@ def categorySixteen(mainParticipant, otherparticipant):
 def allCategories(mem1, mem2):
     together = categoryOne(mem1,mem2) + categoryTwo(mem1,mem2) + categoryThree(mem1,mem2) + categoryFourFive(mem1,mem2) + categorySix(mem1,mem2) + categorySevenEight(mem1,mem2) + categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2) + categoryFifteen(mem1,mem2) + categorySixteen(mem1,mem2)
     return together*together
-#Here will the data be stored
+
+
+#Edits the output, adds 1 to the members ID so they allign with the JSON -- 
+def outputEditor(output):
+    outcome1 = re.findall("\d+", output)
+    outcome2 = [int(i) for i in outcome1]
+    for a in range(2,len(outcome2),3):
+        outcome2[a] -= 1
+    for a in range(0,len(outcome2)):
+        outcome2[a] += 1
+    return outcome2
+
+
 
 #Making the groups of people, inputs two strings (Names of the groups)
 def groupMaker(group1, group2):
@@ -174,7 +187,7 @@ def groupMaker(group1, group2):
             group1List.append(int(lookForData("Name ID", group) - 1))
         elif lookForData("Group", group) == group2:
             group2List.append(int(lookForData("Name ID", group) - 1))
-    #Need to add a check for len of lists
+    #Need to add a check for len of lisly here --- Error handling probabaly here
     for lists1 in range(len(group1List)):
         for lists in range(len(group1List)):
             exe = allCategories(group1List[lists1], group2List[lists])
@@ -185,20 +198,12 @@ def groupMaker(group1, group2):
     print(namesDict)
     return(namesDict)
 
-
+#Here the poting function is called -- For now this is the error handling
 try:
     group1 = groupMaker("F3", "F4")
 except IndexError:
     print("[ERROR] Number of participants is not matching!")
-outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')
-print(outcome)
-
-print("Done")
-    
-
-    
-
-    
-        
-
-
+#Algorithm we are using
+outcome = str(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list'))
+print("The output of the algorithm is: {}".format(outcome))
+print("Edited so hey IDs match: {}".format(outputEditor(outcome)))
