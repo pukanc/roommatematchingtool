@@ -187,7 +187,7 @@ def groupMaker(group1, group2):
             group1List.append(int(lookForData("Name ID", group) - 1))
         elif lookForData("Group", group) == group2:
             group2List.append(int(lookForData("Name ID", group) - 1))
-    #Need to add a check for len of lisly here --- Error handling probabaly here
+    #Need to add a check for len of list here --- Error handling needs to be added
     for lists1 in range(len(group1List)):
         for lists in range(len(group1List)):
             exe = allCategories(group1List[lists1], group2List[lists])
@@ -198,12 +198,13 @@ def groupMaker(group1, group2):
     print(namesDict)
     return(namesDict)
 
-#Here the poting function is called -- For now this is the error handling
+#Here the pointing function is called -- For now this is the error handling
 try:
     group1 = groupMaker("F3", "F4")
 except IndexError:
     print("[ERROR] Number of participants is not matching!")
-#Algorithm we are using
+#Algorithm we are using -- 
 outcome = str(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list'))
+#Output -- 
 print("The output of the algorithm is: {}".format(outcome))
-print("Edited so hey IDs match: {}".format(outputEditor(outcome)))
+print("Edited so the IDs match: {}".format(outputEditor(outcome)))
