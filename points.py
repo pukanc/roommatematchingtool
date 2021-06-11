@@ -1,40 +1,79 @@
 import json, time, re
 import excel2json
 from hungarian_algorithm import algorithm
+#Start
+
+
 #all the questions here
-allOptionsList = ["Group", "Slovak", "Name ID", "Do you prefer to sleep with the window open?", 
-"How sensitive are you to the lights being ON while you are sleeping?", "How sensitive are you to sound/noise while you are sleeping?",
-"How important is it for you to play music on speaker in your room during the day?", 
-"Do you mind if your roommate plays music on speaker in the room during the day?",
-"How important is cleanliness & orderliness to you?",
-"Do you mind sharing your personal items with your roommate?",
-"How often do you use other people's items  (charger, comb, clothing, ...)",
-"How important is it for your room to be a QUIET space for just you and your roommate?",
-"How often would you like to have friends over?",
-"What is the latest you would like to have friends over in your room?",
-"What is the latest you would want your roommate to have his/her friends over in the room?",
-"Do you prefer to use your room mainly as a sleeping space or as a living space?",
-"Do you prefer to have a roommate who spends a lot of time in the room, or mainly just comes to room to sleep?",
-"What time do you prefer to sleep?",
-"What time do you prefer to wake up?"]
+#Start -- Name of the EXCEL sheet + The name of the JSON file
 
-#Creates the JSON files
-data = excel2json.convert_from_file('prefs_table.xls')
+firstExcel = "Test.xls"
+secondJSON = "Form Responses.json"
+excel2json.convert_from_file(str(firstExcel))
+"""
+while True:
+    try:
+        if len(firstExcel) == 0:
+            #Gettings the name of the Excel file -- Needs to be in xls!!!
+            firstExcel = input("What is the name of the of the file? eg. prefs_table.xls    ")
+            excel2json.convert_from_file(str(firstExcel))
+    except NameError:
+        firstExcel = input("What is the name of the of the file? eg. prefs_table.xls    ")
+        excel2json.convert_from_file(str(firstExcel))
+    
+    #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
+    secondJSON = input("Check your folder and pick the JSON file you want to use. eg. Form Responses.json    ")
+    try:
+        jdata = json.loads(open(str(secondJSON)).read())
+        break
+    except FileNotFoundError:
+        pass
+"""
+#firstExcel -- Name of the excel file
+#secondJSON -- Name of the JSON file
+#Gets all the number of people in the list
 
-#For searching in the JSON file ,,,,Name And then the block number
+#Handling of the questions -- Giving data to the operator
+def getAllList():
+    res = json.loads(open(str(secondJSON)).read())
+    list = []
+    for key in res[0].keys():
+        list.append(key)
+    return list
+
+#Var for all option that exist -- 
+allOptionsList = getAllList()
+
+def loadAllQuestions():
+    jdata = json.loads(open(secondJSON).read())
+
+
+#For searching in the JSON file ,,, Name And then the block number
 def lookForData(jClass, numberWhere):
-    jdata = json.loads(open('Form Responses.json').read())
+    jdata = json.loads(open(str(secondJSON)).read())
     try:
         return jdata[numberWhere][jClass]
     except KeyError:
         print("Not existing")
         return False
+#Returns an int, number start with a zero
+def numberOfParticipants():
+    nOfparticipants = -1
+    while True:
+        try:
+            lookForData("Name ID", nOfparticipants)
+        except IndexError:
+            print("Number of students is: {}".format(nOfparticipants))
+            break
+        nOfparticipants =  nOfparticipants + 1
+    return nOfparticipants
+
 
 #Returns all the data that a participant has
 def dataForParticipant(number):
-    jdata = json.loads(open('Form Responses.json').read())
+    jdata = json.loads(open(secondJSON).read())
     data = []
-    for i in range(0,18):
+    for i in range(0,len(getAllList())):
         data.append(jdata[number][allOptionsList[i]])
     return data
 #Window  - Doulbe points - Two integers needed
@@ -46,47 +85,43 @@ def categoryOne(mainParticipant, otherparticipant):
         minus = minus * (-1)
     return minus * 2
 
-#Lights, double, two integers needed 
-def categoryTwo(mainParticipant, otherparticipant):
-    mainP = dataForParticipant(mainParticipant)
-    otherP = dataForParticipant(otherparticipant)
-    minus = mainP[4] - otherP[4]
-    if minus < 0:
-        minus = minus * (-1)
-    return minus * 2
-#Sound senstivity, double points, two integers neeeded 
-def categoryThree(mainParticipant, otherparticipant):
-    mainP = dataForParticipant(mainParticipant)
-    otherP = dataForParticipant(otherparticipant)
-    minus = mainP[5] - otherP[5]
-    if minus < 0:
-        minus = minus * (-1)
-    return minus * 2
-
 #Speaker music + Playing music, two integers -- Special case
-def categoryFourFive(mainParticipant, otherparticipant):
+def categoryTwoThree(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[7]
-    otherPq5 = 6 - otherP[7]
-    calc1 = mainP[6] - otherPq5
+    mainPq5 = 6 - mainP[5]
+    otherPq5 = 6 - otherP[5]
+    calc1 = mainP[4] - otherPq5
     if calc1 < 0:
         calc1 = calc1 * (-1)
-    calc2 = mainPq5 - otherP[6]
+    calc2 = mainPq5 - otherP[4]
     if calc2 < 0:
         calc2 = calc2 * (-1)
     return calc1 + calc2
 
 #Cleanliness orderliness - double, two integers needed 
-def categorySix(mainParticipant, otherparticipant):
+def categoryFour(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    minus = mainP[8] - otherP[8]
+    minus = mainP[6] - otherP[6]
     if minus < 0:
         minus = minus * (-1)
     return minus * 2
-#Sharing of items, reversed special, two ints needed 
 
+#Sharing of items, reversed special, two ints needed 
+def categoryFiveSix(mainParticipant, otherparticipant):
+    mainP = dataForParticipant(mainParticipant)
+    otherP = dataForParticipant(otherparticipant)
+    mainPq5 = 6 - mainP[8]
+    otherPq5 = 6 - otherP[8]
+    calc1 = mainP[7] - otherPq5
+    if calc1 < 0:
+        calc1 = calc1 * (-1)
+    calc2 = mainPq5 - otherP[7]
+    if calc2 < 0:
+        calc2 = calc2 * (-1)
+    return calc1 + calc2
+#Quiet space, reversed special, two ints neeeded 
 def categorySevenEight(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
@@ -99,12 +134,13 @@ def categorySevenEight(mainParticipant, otherparticipant):
     if calc2 < 0:
         calc2 = calc2 * (-1)
     return calc1 + calc2
-#Quiet space, reversed special, two ints neeeded 
+
+#Friends over, specia but not reversed, two ints are needed  
 def categoryNineTen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[12]
-    otherPq5 = 6 - otherP[12]
+    mainPq5 = mainP[12]
+    otherPq5 = otherP[12]
     calc1 = mainP[11] - otherPq5
     if calc1 < 0:
         calc1 = calc1 * (-1)
@@ -113,12 +149,12 @@ def categoryNineTen(mainParticipant, otherparticipant):
         calc2 = calc2 * (-1)
     return calc1 + calc2
 
-#Friends over, specia but not reversed, two ints are needed  
+#Living space, special but not reversed, two ints needed 
 def categoryElevenTwelve(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
     mainPq5 = mainP[14]
-    otherPq5 = otherP[14]
+    otherPq5 = otherP [14]
     calc1 = mainP[13] - otherPq5
     if calc1 < 0:
         calc1 = calc1 * (-1)
@@ -127,40 +163,41 @@ def categoryElevenTwelve(mainParticipant, otherparticipant):
         calc2 = calc2 * (-1)
     return calc1 + calc2
 
-#Living space, special but not reversed, two ints needed 
+#Sleeping, special alogorithm
 def categoryThirteenFourteen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = mainP[16]
-    otherPq5 = otherP[16]
-    calc1 = mainP[15] - otherPq5
-    if calc1 < 0:
-        calc1 = calc1 * (-1)
-    calc2 = mainPq5 - otherP[15]
-    if calc2 < 0:
-        calc2 = calc2 * (-1)
-    return calc1 + calc2
+    #first person
+    sleepF1 = mainP[15] - otherP[15]
+    wakeF1 = mainP[16] - otherP[16]
+    #second person
+    sleepF2 = otherP[15] - mainP[15]
+    wakeF2 = otherP[16] - mainP[16]
+    #Person one sleep
+    if sleepF1 < 0:
+        person1s = (-sleepF1 + 1)/(6-mainP[14])/(5/4)
+    else:
+        person1s = 0
+    #Person two sleep
+    if sleepF2 < 0:
+        person2s = (-sleepF2 + 1)/(6-otherP[14])/(5/4)
+    else:
+        person2s = 0
+    #Person one wake
+    if wakeF1 > 0:
+        person1w = (wakeF1 + 1)/(6-mainP[14])/(5/4)
+    else:
+        person1w = 0
+    #Person two wake
+    if wakeF2 > 0:
+        person2w = (wakeF2 + 1)/(6-otherP[14])/(5/4)
+    else:
+        person2w = 0
+    return (person1w + person2w + person1s + person2s) * 2
 
-#Sleeping, double, two ints
-def categoryFifteen(mainParticipant, otherparticipant):
-    mainP = dataForParticipant(mainParticipant)
-    otherP = dataForParticipant(otherparticipant)
-    minus = mainP[17] - otherP[17]
-    if minus < 0:
-        minus = minus * (-1)
-    return minus * 2
-
-# Waking up, double, two ints
-def categorySixteen(mainParticipant, otherparticipant):
-    mainP = dataForParticipant(mainParticipant)
-    otherP = dataForParticipant(otherparticipant)
-    minus = mainP[17] - otherP[17]
-    if minus < 0:
-        minus = minus * (-1)
-    return minus * 2
 #Execution two ints, 
 def allCategories(mem1, mem2):
-    together = categoryOne(mem1,mem2) + categoryTwo(mem1,mem2) + categoryThree(mem1,mem2) + categoryFourFive(mem1,mem2) + categorySix(mem1,mem2) + categorySevenEight(mem1,mem2) + categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2) + categoryFifteen(mem1,mem2) + categorySixteen(mem1,mem2)
+    together = categoryOne(mem1,mem2) + categoryTwoThree(mem1,mem2) + categoryFour(mem1,mem2) + categoryFiveSix(mem1,mem2) + categorySevenEight(mem1,mem2) +categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2)
     return together*together
 
 
@@ -198,13 +235,21 @@ def groupMaker(group1, group2):
     print(namesDict)
     return(namesDict)
 
+def finalOut(out):
+    print(" ")
+    print(" ")
+    print("The output of the algorithm is: {}".format(outcome))
+    print("Edited so the IDs match: {}".format(outputEditor(outcome)))
+
+
+    
 #Here the pointing function is called -- For now this is the error handling
-try:
-    group1 = groupMaker("F3", "F4")
-except IndexError:
-    print("[ERROR] Number of participants is not matching!")
+#Input for groups
+print("Which groups should be used! eg. F4, F3")
+fg = input("Group one: ")
+sg = input("Group two: ")
+group1 = groupMaker(fg, sg)
 #Algorithm we are using -- 
 outcome = str(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list'))
-#Output -- 
-print("The output of the algorithm is: {}".format(outcome))
-print("Edited so the IDs match: {}".format(outputEditor(outcome)))
+#Out
+finalOut(outcome)
