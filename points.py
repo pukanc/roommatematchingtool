@@ -235,11 +235,28 @@ def groupMaker(group1, group2):
     print(namesDict)
     return(namesDict)
 
-def finalOut(out):
+def finalOut(outcome):
     print(" ")
     print(" ")
+    list1 = outputEditor(outcome)
+    for rem in range(2,int(len(list1)/2), 2):
+        del list1[rem]
+    print(list1)
+    rommno = 0
+    add = 0
+    nList = []
     print("The output of the algorithm is: {}".format(outcome))
-    print("Edited so the IDs match: {}".format(outputEditor(outcome)))
+    print("IDS matching {}".format(list1))
+    print()
+    for rem in range(int(len(list1)/2)):
+        rommno += 1
+        nList.clear()
+        nList.append(list1[add])
+        nList.append(list1[add+1])
+        add += 2
+        print("Room {}: {}, {}".format(rommno, nList[0], nList[1]))
+
+        
 
 
     
