@@ -1,39 +1,35 @@
 import json, time, re
 import excel2json
 from hungarian_algorithm import algorithm
-#Start
+debug = False
 
-
-#all the questions here
-#Start -- Name of the EXCEL sheet + The name of the JSON file
-
-firstExcel = "Test.xls"
-secondJSON = "Form Responses.json"
-excel2json.convert_from_file(str(firstExcel))
-"""
-while True:
-    try:
-        if len(firstExcel) == 0:
-            #Gettings the name of the Excel file -- Needs to be in xls!!!
+#Debug off == user-mode, Debug on debug
+if debug == True:
+    firstExcel = "Test.xls"
+    secondJSON = "Form Responses.json"
+    excel2json.convert_from_file(str(firstExcel))
+else:
+    while True:
+        try:
+            if len(firstExcel) == 0:
+                #Gettings the name of the Excel file -- Needs to be in xls!!!
+                firstExcel = input("What is the name of the of the file? eg. prefs_table.xls    ")
+                excel2json.convert_from_file(str(firstExcel))
+        
+        except NameError:
             firstExcel = input("What is the name of the of the file? eg. prefs_table.xls    ")
             excel2json.convert_from_file(str(firstExcel))
-    except NameError:
-        firstExcel = input("What is the name of the of the file? eg. prefs_table.xls    ")
-        excel2json.convert_from_file(str(firstExcel))
     
-    #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
-    secondJSON = input("Check your folder and pick the JSON file you want to use. eg. Form Responses.json    ")
-    try:
-        jdata = json.loads(open(str(secondJSON)).read())
-        break
-    except FileNotFoundError:
-        pass
-"""
-#firstExcel -- Name of the excel file
-#secondJSON -- Name of the JSON file
-#Gets all the number of people in the list
+            #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
+        secondJSON = input("Check your folder and pick the JSON file you want to use. eg. Form Responses.json    ")
+        try:
+            jdata = json.loads(open(str(secondJSON)).read())
+            break
+        except FileNotFoundError:
+                pass
 
-#Handling of the questions -- Giving data to the operator
+
+#Handling of the questions -- All questions in a list
 def getAllList():
     res = json.loads(open(str(secondJSON)).read())
     list = []
@@ -44,11 +40,8 @@ def getAllList():
 #Var for all option that exist -- 
 allOptionsList = getAllList()
 
-def loadAllQuestions():
-    jdata = json.loads(open(secondJSON).read())
 
-
-#For searching in the JSON file ,,, Name And then the block number
+#For searching in the JSON file -- Name And then the block number
 def lookForData(jClass, numberWhere):
     jdata = json.loads(open(str(secondJSON)).read())
     try:
@@ -56,6 +49,7 @@ def lookForData(jClass, numberWhere):
     except KeyError:
         print("Not existing")
         return False
+
 #Returns an int, number start with a zero
 def numberOfParticipants():
     nOfparticipants = -1
@@ -63,7 +57,6 @@ def numberOfParticipants():
         try:
             lookForData("Name ID", nOfparticipants)
         except IndexError:
-            print("Number of students is: {}".format(nOfparticipants))
             break
         nOfparticipants =  nOfparticipants + 1
     return nOfparticipants
@@ -219,7 +212,7 @@ def groupMaker(group1, group2):
     storingDic = {}
     group1List = []
     group2List = []
-    for group in range(80):
+    for group in range(numberOfParticipants()):
         if lookForData("Group", group) == group1:
             group1List.append(int(lookForData("Name ID", group) - 1))
         elif lookForData("Group", group) == group2:
@@ -232,16 +225,16 @@ def groupMaker(group1, group2):
             if lists == (len(group1List) - 1):
                 namesDict.update({group1List[lists1] : storingDic})
                 storingDic = {}
-    print(namesDict)
     return(namesDict)
 
+    
+#Final output system, edits the output and puts it into groups, input should be the output from the algorithm
 def finalOut(outcome):
     print(" ")
     print(" ")
     list1 = outputEditor(outcome)
     for rem in range(2,int(len(list1)/2), 2):
         del list1[rem]
-    print(list1)
     rommno = 0
     add = 0
     nList = []
@@ -256,17 +249,24 @@ def finalOut(outcome):
         add += 2
         print("Room {}: {}, {}".format(rommno, nList[0], nList[1]))
 
-        
+#Print out all participants and questions --
+def announceData():
+    print("Number of registered participants: {}".format(numberOfParticipants()))
+    print("Number of registered questions: {}".format(len(getAllList())))
+
 
 
     
-#Here the pointing function is called -- For now this is the error handling
-#Input for groups
-print("Which groups should be used! eg. F4, F3")
+
+#Announces data
+announceData()
+time.sleep(2)
+#Input groups
+print("Which groups should be used! eg. F3, F4")
 fg = input("Group one: ")
 sg = input("Group two: ")
 group1 = groupMaker(fg, sg)
 #Algorithm we are using -- 
 outcome = str(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list'))
-#Out
+#Output
 finalOut(outcome)
