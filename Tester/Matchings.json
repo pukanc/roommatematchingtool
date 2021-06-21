@@ -1,0 +1,114 @@
+[
+    {
+        "Batch 1": "M2 with M1.\nFirst 2 from M2 can only pair with the first 5 from M1.\nNon-Slovaks cannot be paired with other non-Slovaks.",
+        "": "",
+        "Batch 2": "M3 with M4.\nFirst 3 from M4 can only pair with the first 5 from M3.\nLast 1 from M3 can only pair with the last 2 from M4.\nNon-Slovaks cannot be paired with other non-Slovaks.",
+        "Batch 3": "F1 with F2.\nFirst 2 from F2 can only pair with the first 10 from M1.\nNon-Slovaks cannot be paired with other non-Slovaks.",
+        "Batch 4": "F3 with F4\nNon-Slovaks cannot be paired with other non-Slovaks."
+    },
+    {
+        "Batch 1": "Male Group 1",
+        "": "Female Group 4",
+        "Batch 2": "Male Group 3",
+        "Batch 3": "Female Group 1",
+        "Batch 4": "Female Group 3"
+    },
+    {
+        "Batch 1": "Boris Paster\u0148ak",
+        "": "Yelyzaveta Husieva",
+        "Batch 2": "Ivan Pravdin",
+        "Batch 3": "Barbora Smole\u0148ov\u00e1",
+        "Batch 4": "Hana Maro\u0161ov\u00e1"
+    },
+    {
+        "Batch 1": "Daniel Sl\u00e1vik",
+        "": "Alice T\u00fdfov\u00e1",
+        "Batch 2": "Ivo Z\u00e1le\u0161\u00e1k",
+        "Batch 3": "Halina \u0160vastov\u00e1",
+        "Batch 4": "Ingrid Yan Zhang"
+    },
+    {
+        "Batch 1": "Martin Abelovsk\u00fd",
+        "": "Nastasia Vr\u00e1blov\u00e1",
+        "Batch 2": "Matej \u010ca\u010d\u00edk",
+        "Batch 3": "Hana Tren\u010danov\u00e1",
+        "Batch 4": "Jasm\u00edna Pustaiov\u00e1"
+    },
+    {
+        "Batch 1": "Miroslav Medo",
+        "": "Eli\u0161ka Bohunick\u00e1",
+        "Batch 2": "Mat\u00fa\u0161 Leng",
+        "Batch 3": "Karol\u00edna Kampo\u0161ov\u00e1",
+        "Batch 4": "Katar\u00edna Oravcov\u00e1"
+    },
+    {
+        "Batch 1": "Sebest\u00fden Marozs",
+        "": "Nguyen Nguyen",
+        "Batch 2": "Michael McLean",
+        "Batch 3": "Laura \u0160tevonkov\u00e1",
+        "Batch 4": "Katar\u00edna Tur\u00f3ciov\u00e1"
+    },
+    {
+        "Batch 1": "Matej Kiss",
+        "": "Krist\u00edna Horinkov\u00e1",
+        "Batch 2": "Luk\u00e1\u0161 Mikulec",
+        "Batch 3": "Nina Kanabov\u00e1",
+        "Batch 4": "Valeriia Kruzhkova"
+    },
+    {
+        "Batch 1": "Oliver Obenrauch",
+        "": "Lucia \u010curillov\u00e1",
+        "Batch 2": "Uriel Tagar",
+        "Batch 3": "Ol\u00edvia J\u00e1no\u0161\u00edkov\u00e1",
+        "Batch 4": "\u017dofia Kov\u00e1\u010dov\u00e1"
+    },
+    {
+        "Batch 1": "Peter Kov\u00e1cs",
+        "": "",
+        "Batch 2": "Dominik Ko\u013e",
+        "Batch 3": "Rebeka Kampo\u0161ov\u00e1",
+        "Batch 4": ""
+    },
+    {
+        "Batch 1": "\u0160imon Kern",
+        "": "",
+        "Batch 2": "Martin Kolej\u00e1k",
+        "Batch 3": "Sofia Mardzinov\u00e1",
+        "Batch 4": ""
+    },
+    {
+        "Batch 1": "",
+        "": "",
+        "Batch 2": "Adam Bobock\u00fd",
+        "Batch 3": "Zuzana Hr\u0148ov\u00e1",
+        "Batch 4": ""
+    },
+    {
+        "Batch 1": "",
+        "": "",
+        "Batch 2": "",
+        "Batch 3": "Eli\u0161ka Pastierikov\u00e1",
+        "Batch 4": ""
+    },
+    {
+        "Batch 1": "",
+        "": "",
+        "Batch 2": "",
+        "Batch 3": "Magdal\u00e9na Michalkov\u00e1",
+        "Batch 4": ""
+    },
+    {
+        "Batch 1": "",
+        "": "",
+        "Batch 2": "",
+        "Batch 3": "Nat\u00e1lia P\u010dolov\u00e1",
+        "Batch 4": ""
+    },
+    {
+        "Batch 1": "",
+        "": "",
+        "Batch 2": "",
+        "Batch 3": "Vivien V\u00e1mosov\u00e1",
+        "Batch 4": ""
+    }
+]
