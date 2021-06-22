@@ -10,10 +10,11 @@ class Values:
     allOptionsList = []                             #Loading all the questions 
     startTime = 0                                   #Start time of the operation 
     endTime   = 0                                   #End time of the operation
+    group1 = []                                     #Group 1 list
+    group2 = []                                     #Group 2 list
 sett = Values()                                     #Creating a global object
 
-
-missingParticipant = False
+                                                    #Intial input, --IF DEBUG TRUE DISABLED-- .xls, .json file input
 if sett.debug == True:
     excel2json.convert_from_file(str(sett.excelName))
 else:
@@ -21,7 +22,7 @@ else:
     while True:
         try:
             localCounter += 1
-            if  localCounter == 1:
+            if  localCounter == 1:                                                                     #Enter the .xls file
                 print("What is the name of the of the file? eg. prefs_table.xls")
                 sett.excelName = input()
                 excel2json.convert_from_file(str(sett.excelName))
@@ -32,14 +33,15 @@ else:
             sett.excelName = input()
             excel2json.convert_from_file(str(sett.excelName))
     
-            #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
+        #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
         print("Check your folder and pick the JSON file you want to use. eg. Form Responses.json")
         sett.jsonName = input()
         try:
             json.loads(open(str(sett.jsonName)).read())
             break
         except FileNotFoundError:
-                pass
+            print("[ERR] File not found!")
+
 #Converts time -- for the stopwatch
 def time_convert(sec):
   mins = sec // 60
@@ -220,6 +222,8 @@ def groupDic(group1Listt, group2Listt):
                     storingDic = {}
     return namesDict
 
+def  uneven1(): #Will be for the new uneven
+    pass
 
 
 #Making the groups of people, inputs two strings (Names of the groups)
@@ -285,7 +289,7 @@ def groupMaker(group1, group2):
             time.sleep(3)
             exit()
                                                                         #Number of participants is equal
-    else:                                                               #Creating the dict
+    else:                                                               #Creating the dict -- Number of participants is even
         namesDict = {}
         storingDic = {}
         for lists1 in range(len(group1List)):
@@ -312,7 +316,7 @@ def finalOut(outcome):
         print("Room {}: {}, - alone".format(a+2, sett.missingParticipant+1))
 
 
-#Print out all participants and questions --
+#Prints out some basic data
 def announceData():
     print("Number of registered participants: {}".format(numberOfParticipants()))
     print("Number of registered questions: {}".format(len(getAllList())))
