@@ -3,6 +3,7 @@ import excel2json
 from hungarian_algorithm import algorithm
 
 class Values:
+    version = "0.5.1"
     debug = True                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
@@ -222,8 +223,57 @@ def groupDic(group1Listt, group2Listt):
                     storingDic = {}
     return namesDict
 
-def  uneven1(): #Will be for the new uneven
-    pass
+                                                                #Used for unven groups, difference bettween members needs to be 1, 
+def unevenGroups1(group1List, group2List, returnDict):                     #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
+    if abs(len(group1List) - len(group2List)) != 1:
+        print("[ERR] Difference bettween the number of participants is not 1!!!")
+        return False
+    if len(group1List) - len(group2List) == 1: #In this case the dominant group is g1
+        dominantGroup = 0
+    else:                                      #Dominant group g2
+        dominantGroup = 1
+    #
+    generatedValues = []
+    sumAll = 0                 #Used in the loop
+    testGroup = group1List     #Loadin buffer values
+    bestGroup = group1List     #Loading bvuffer values
+    #
+    if dominantGroup == 1:                 #In case that the dominant group is g2 
+        #Switching the groups
+        buffer = group1List                # - = g1
+        group1List = group2List            #g1 = g2
+        group2List = buffer                #g2 = g1
+        #Loading the new group 1
+        testGroup = group1List
+        bestGroup = group1List
+    #Comparing one list to another, special algorithm
+    for listMain in range(len(group1List)): #Generating the values for this group
+        generatedValues.append(sumAll)      #Appends all the sums to a list
+        testGroup = []                      #Creating a list
+        testGroup.extend(group1List)        #Resets the value
+        testGroup.pop(listMain)             #Deletes one object from LIST
+        sumAll = 0
+        for lists1 in range(len(group2List)):
+            for lists in range(len(group2List)):
+                exe = allCategories(testGroup[lists1], group2List[lists])
+                sumAll += exe
+    generatedValues.pop(0)                        #removes the first 0 from the list
+        #
+    checker = 10000000
+    checker_value = 0
+        #
+    for check in range(len(generatedValues)):      #Searches for the smallest sum in the whole LIST
+        if checker > generatedValues[check]:       #If a sum is smaller than checker then it gets into checker
+            checker = generatedValues[check]
+            checker_value = check
+        #
+    if returnDict == True:                                  #If we want the dict returned 
+        sett.missingParticipant = bestGroup[checker_value]  #Saves the User ID to the class
+        bestGroup.pop(checker_value)                        #Removes the number
+        finalR = groupDic(bestGroup, group2List)            #Creates a Dict
+        if sett.debug == True: print(finalR)
+        return finalR
+    return checker                                          #In case that we only want the smallest sum returned
 
 
 #Making the groups of people, inputs two strings (Names of the groups)
@@ -235,61 +285,11 @@ def groupMaker(group1, group2):
             group1List.append(int(lookForData("Name ID", group) - 1))
         elif lookForData("Group", group) == group2:
             group2List.append(int(lookForData("Name ID", group) - 1))
-                                                                                #Uneven number of participants!!!!
-    if len(group1List) != len(group2List):      #Checks for the difference
-        if abs(len(group1List) - len(group2List)) == 1:
-            if len(group1List) - len(group2List) == 1: #Dominant group 1
-                dominantGroup = 0
-            else:                                      #Dominant group 2 
-                dominantGroup = 1
-            #
-            generatedValues = []
-            sumAll = 0                 #Used in the loop
-            testGroup = group1List
-            bestGroup = group1List
-            if dominantGroup == 1:        
-                #Switching the groups
-                buffer = group1List
-                group1List = group2List
-                group2List = buffer
-                #Loading the new group 1
-                testGroup = group1List
-                bestGroup = group1List
-            #Comparing one list to another, special algorithm
-            for listMain in range(len(group1List)): #Generating the values for this group
-                generatedValues.append(sumAll)      #Appends all the sums to a list
-                testGroup = []                #Creating a list
-                testGroup.extend(group1List)  #Resets the value
-                testGroup.pop(listMain)       #Deletes one object from LIST
-                sumAll = 0
-                for lists1 in range(len(group2List)):
-                    for lists in range(len(group2List)):
-                        exe = allCategories(testGroup[lists1], group2List[lists])
-                        sumAll += exe
-            generatedValues.pop(0)            #removes the first 0 from the list
-            #
-            checker = 10000000
-            checker_value = 0
-            #
-            for check in range(len(generatedValues)):      #Searches for the smallest sum in the whole LIST
-                if checker > generatedValues[check]:       #If a sum is smaller than checker then it gets into checker
-                    checker = generatedValues[check]
-                    checker_value = check
-            #
-            sett.missingParticipant = bestGroup[checker_value]  #Saves the User ID to the class
-            bestGroup.pop(checker_value)                        #Removes the number
-            finalR = groupDic(bestGroup, group2List)            #Creates a Dict
-            if sett.debug == True: print(finalR)
-            return finalR
- 
-
-        #More people are uneven
-        else:
-            print("Difference of paricipants bigger than 1, not supported yet!")
-            time.sleep(3)
-            exit()
-                                                                        #Number of participants is equal
-    else:                                                               #Creating the dict -- Number of participants is even
+    #
+    if abs(len(group1List) - len(group2List)) == 1:   #Calls the function for uneven numbers with difference 1
+        return unevenGroups1(group1List,group2List,True)
+    #
+    elif len(group1List) == len(group2List):          #Creating the dict -- Number of participants is even
         namesDict = {}
         storingDic = {}
         for lists1 in range(len(group1List)):
@@ -299,7 +299,11 @@ def groupMaker(group1, group2):
                 if lists == (len(group1List) - 1):
                     namesDict.update({group1List[lists1] : storingDic})
                     storingDic = {}
-    return(namesDict)
+        return(namesDict)
+    else:                                               #More people are uneven
+        print("Difference of paricipants bigger than 1, not supported yet!")
+        time.sleep(3)
+        exit()
 
     
 #Final output system, edits the output and puts it into groups, input should be the output from the algorithm
@@ -318,8 +322,12 @@ def finalOut(outcome):
 
 #Prints out some basic data
 def announceData():
+    print()
+    print("Version: {}".format(sett.version))
+    print()
     print("Number of registered participants: {}".format(numberOfParticipants()))
     print("Number of registered questions: {}".format(len(getAllList())))
+    print()
 
 
 #Announces data
