@@ -3,7 +3,7 @@ import excel2json
 from hungarian_algorithm import algorithm
 
 class Values:
-    version = "0.5.1"
+    version = "0.6.1"
     debug = True                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
@@ -223,8 +223,8 @@ def groupDic(group1Listt, group2Listt):
                     storingDic = {}
     return namesDict
 
-                                                                #Used for unven groups, difference bettween members needs to be 1, 
-def unevenGroups1(group1List, group2List, returnDict):                     #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
+#Used for unven groups, difference bettween members needs to be 1
+def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
     if abs(len(group1List) - len(group2List)) != 1:
         print("[ERR] Difference bettween the number of participants is not 1!!!")
         return False
@@ -275,6 +275,72 @@ def unevenGroups1(group1List, group2List, returnDict):                     #Inpu
         return finalR
     return checker                                          #In case that we only want the smallest sum returned
 
+#From list1 to list2 -- List1, List2, indexNumber -- Mostly used in the uneven uneven algorithm
+def moveElements(list1, list2, listNumber): 
+    list2.append(list1[listNumber])
+    list1.pop(listNumber)
+    return [list1,list2]
+#Algorithm for groups where the difference is bigger than 1
+def unevenUnevenAlgo(list1,list2):
+    if (len(list1) - len(list2)) > 0:          #Dominant group1(List1)
+        domi = 0                               #Var for dominant group
+        difference = (len(list1) - len(list2)) #Difference 
+
+    else:                                      #Dominant group2(List2)
+        domi = 1                               #Var for dominant group
+        difference = (len(list2) - len(list1)) #Difference 
+
+    if difference % 2 == 0:                    #1st case -- difference mod is 0
+        difference = difference / 2            #1/2 of the dif
+        if domi == 0:                          #Dominant group1(list1)
+            for dif in range(int(difference)):
+                case = moveElements(list1,list2,dif)
+                list1 = case[0]
+                list2 = case[1]
+        if domi == 1:                          #Dominant group2(list2)
+            for dif in range(int(difference)):
+                case = moveElements(list2,list1,dif)
+                list1 = case[1]
+                list2 = case[0]
+    else:                                      #difference mod 2 is >0
+        if domi == 0:                          #Dominant group1(list1) -- saving one member to the buffer
+            buffer = list1[len(list1) - 1]
+            list1.pop(len(list1) - 1)
+        else:                                  #Dominant group2(list2) -- saving one member to the buffer
+            buffer = list2[len(list2) - 1]
+            list2.pop(len(list2) - 1)
+        #
+        difference = (difference - 1) / 2       #Difference was not updated thats why we need to -1
+        for dif in range(int(difference)):
+            if domi == 0: 
+                case = moveElements(list1,list2,dif)
+                list1 = case[0]
+                list2 = case[1]        
+            if domi == 1: 
+                case = moveElements(list2,list1,dif)
+                list1 = case[1]
+                list2 = case[0]
+    try:
+        list1.append(buffer)
+    except UnboundLocalError:
+        pass
+    if sett.debug == True: 
+        print()
+        print("[DEBUG - unevenUnevenAlgo] List 1: {} len({}), List 2: {} len({})".format(list1,len(list1),list2,len(list2)))
+        print()
+    return [list1,list2]
+
+def evenAlgo(group1List, group2List):    #Plain dict creaton for the even algorithm
+    namesDict = {}
+    storingDic = {}
+    for lists1 in range(len(group1List)):
+        for lists in range(len(group1List)):
+            exe = allCategories(group1List[lists1], group2List[lists])
+            storingDic.update({group2List[lists] : int(exe)})
+            if lists == (len(group1List) - 1):
+                namesDict.update({group1List[lists1] : storingDic})
+                storingDic = {}
+    return namesDict
 
 #Making the groups of people, inputs two strings (Names of the groups)
 def groupMaker(group1, group2):
@@ -290,25 +356,24 @@ def groupMaker(group1, group2):
         return unevenGroups1(group1List,group2List,True)
     #
     elif len(group1List) == len(group2List):          #Creating the dict -- Number of participants is even
-        namesDict = {}
-        storingDic = {}
-        for lists1 in range(len(group1List)):
-            for lists in range(len(group1List)):
-                exe = allCategories(group1List[lists1], group2List[lists])
-                storingDic.update({group2List[lists] : int(exe)})
-                if lists == (len(group1List) - 1):
-                    namesDict.update({group1List[lists1] : storingDic})
-                    storingDic = {}
-        return(namesDict)
-    else:                                               #More people are uneven
-        print("Difference of paricipants bigger than 1, not supported yet!")
-        time.sleep(3)
-        exit()
+        return evenAlgo(group1List, group2List)
+    #
+    elif abs(len(group1List) - len(group2List)) > 1:    #More people are uneven
+        rtrn = unevenUnevenAlgo(group1List,group2List)  #Returns the edited lists that are even or uneven
+        if len(rtrn[0]) == len(rtrn[1]):                #If the lists are even
+            return evenAlgo(rtrn[0], rtrn[1])
+        else:                                           #If the difference between the lists is 1
+            return unevenGroups1(rtrn[0],rtrn[1],True)
+    else:
+        print("[FATAL ERR] Groupmaker")
 
     
 #Final output system, edits the output and puts it into groups, input should be the output from the algorithm
 def finalOut(outcome):
-    if sett.debug == True: print("The output of the algorithm is: {}".format(outcome))
+    if sett.debug == True: 
+        print()
+        print("[DEBUG - finalOut] The output of the algorithm is: {}".format(outcome))
+        print()
     print()
     time_convert(sett.endTime - sett.startTime)                                             #Prints out the time it took
     print()
