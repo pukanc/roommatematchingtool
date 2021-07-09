@@ -1,9 +1,9 @@
-import json, time, re
-import excel2json
+import json, time, re, excel2json
+from typing import Dict
 from hungarian_algorithm import algorithm
-
+from alive_progress import alive_bar
 class Values:
-    version = "0.6.1"
+    version = "0.7.1"
     debug = True                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
@@ -90,7 +90,7 @@ def dataForParticipant(number):
     for i in range(0,len(getAllList())):
         data.append(jdata[number][sett.allOptionsList[i]])
     return data
-
+#---------------------------------------------------------------------------------------------------------
 #Q1 - Window - Doulbe points - Two integers needed
 def categoryOne(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
@@ -215,14 +215,22 @@ def groupDic(group1Listt, group2Listt):
     namesDict = {}
     storingDic = {}
     for lists11 in range(len(group1Listt)):
-            for listss in range(len(group1Listt)):
+            for listss in range(len(group2Listt)):
                 exe = allCategories(group1Listt[lists11], group2Listt[listss])
                 storingDic.update({group2Listt[listss] : int(exe)})
                 if listss == (len(group1Listt) - 1):
                     namesDict.update({group1Listt[lists11] : storingDic})
+                    namesDict.update({group1Listt[lists11] : storingDic})
                     storingDic = {}
     return namesDict
-
+#From list1 to list2 -- List1, List2, indexNumber -- Mostly used in the uneven uneven algorithm
+def moveElements(list1, list2, listNumber1): 
+    list11 = list1.copy()
+    list22 = list2.copy()
+    value = list11[listNumber1]
+    list22.append(list11[listNumber1])
+    list11.pop(listNumber1)
+    return [list11,list22,value]
 #Used for unven groups, difference bettween members needs to be 1
 def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
     if abs(len(group1List) - len(group2List)) != 1:
@@ -269,68 +277,236 @@ def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Retur
         #
     if returnDict == True:                                  #If we want the dict returned 
         sett.missingParticipant = bestGroup[checker_value]  #Saves the User ID to the class
-        bestGroup.pop(checker_value)                        #Removes the number
+        bestGroup.pop(checker_value)                        #Removes the member
         finalR = groupDic(bestGroup, group2List)            #Creates a Dict
         if sett.debug == True: print(finalR)
         return finalR
-    return checker                                          #In case that we only want the smallest sum returned
+    return checker     
 
-#From list1 to list2 -- List1, List2, indexNumber -- Mostly used in the uneven uneven algorithm
-def moveElements(list1, list2, listNumber): 
-    list2.append(list1[listNumber])
-    list1.pop(listNumber)
-    return [list1,list2]
+def sumOfArrays(array1, array2): #Input two arrays
+    if len(array1) != len(array2): raise Exception("[sumOfArrays] - Len Array1 and Len Array2 not matching!!!")
+    sumAll = 0
+    for lists1 in range(len(array1)):
+        for lists in range(len(array2)):
+            exe = allCategories(array1[lists1], array2[lists])
+            sumAll += exe
+    return sumAll
+
+                                       #In case that we only want the smallest sum returned
+def unUnD1e(list1, list2, diff): #list, list,  - int, int 
+    #
+    testList1 = list1.copy()  #Resaving values
+    testList2 = list2.copy()  #Resaving values
+    testlist1n = list1.copy()
+    testlist2n = list2.copy()
+    #
+    usedList = []
+    saveValue = 1000000000000
+    if diff == 1:                       #Case where the difference is 2, 1 member needs to be moved
+        if sett.debug == True: print("[DBG - unUnD1e] The difference is 2, using 'diff == 1'")
+        with alive_bar(len(list1)) as bar:
+            for mem1 in range(len(list1)):       #Making the pairs and calculating the sums
+                bar()
+                rtrn = moveElements(testList1,testList2,mem1)
+                outcome = sumOfArrays(rtrn[0], rtrn[1])
+                if outcome < saveValue:          #Saving the best sum and data about it 
+                    saveValue = outcome
+                    itNubmer = mem1
+        #Now editing the output
+        rtrn = moveElements(testList1,testList2,itNubmer)
+        if sett.debug == True: print("[DBG - unUnD1e] Difference 2!")
+        return [rtrn[0],rtrn[1],saveValue]
+    #
+    if diff == 2:                     #Case where the difference is 4, 2 members needs to be moved
+        if sett.debug == True: print("[DBG - unUnD1e] The difference is 4, using 'diff == 2'")
+        #15 mins
+        with alive_bar(len(list1)*len(list1)) as bar:
+            for mem1 in range(len(list1)):
+                for mem2 in range(len(list1)):
+                    bar()
+                    if mem1 == mem2:      #Checks if the numbers are equal
+                        continue
+                    if (str(mem1) + str(mem2)) in usedList:                                       #Optimization
+                        continue
+                    usedList.append(str(mem1) + str(mem2))
+                    usedList.append(str(mem2) + str(mem1))
+                    listNo = [mem1,mem2]
+                    listName = [testlist1n[mem1], testlist1n[mem2]]
+                    testlist2n.append(testlist1n[mem1])
+                    testlist2n.append(testlist1n[mem2])
+                    testlist1n.remove(listName[0])
+                    testlist1n.remove(listName[1])
+                    outcome = sumOfArrays(testlist1n, testlist1n)
+                    testlist1n = list1.copy()
+                    testlist2n = list2.copy()
+                    if outcome < saveValue:          #Saving the best sum and data about it 
+                        saveValue = outcome
+                        itNubmer = listNo
+                        name = listName
+        testlist2n.append(testlist1n[itNubmer[0]])
+        testlist2n.append(testlist1n[itNubmer[1]])
+        testlist1n.remove(name[0])
+        testlist1n.remove(name[1])
+        if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
+        return [testlist1n,testlist2n,saveValue]
+    #
+    if diff == 3:
+        if sett.debug == True: print("[DBG - unUnD1e] The difference is 6, using 'diff == 3'")
+        with alive_bar(len(list1)*len(list1)*len(list1)) as bar:
+            for mem1 in range(len(list1)):
+                for mem2 in range(len(list1)):
+                    for mem3 in range(len(list1)):
+                        bar()
+                        if mem1 in [mem2,mem3] or mem2 in [mem1,mem3] or mem3 in [mem1,mem2] :     #Optimization
+                            continue
+                        if (str(mem1) + str(mem2) + str(mem3)) in usedList:                                       #Optimization
+                            continue
+                        listNo = [mem1,mem2,mem3]                                                                 #Need the data
+                        for i in range(3):
+                            for g in range(3):
+                                for u in range(3):
+                                    if i == g or i == u or g == u: continue
+                                    usedList.append(str(listNo[i])+str(listNo[g])+str(listNo[u]))
+                        listName = [testlist1n[mem1], testlist1n[mem2], testlist1n[mem3]]
+                        testlist2n.append(testlist1n[mem1])
+                        testlist2n.append(testlist1n[mem2])
+                        testlist2n.append(testlist1n[mem3])
+                        testlist1n.remove(listName[0])
+                        testlist1n.remove(listName[1])
+                        testlist1n.remove(listName[2])
+                        outcome = sumOfArrays(testlist1n, testlist1n)
+                        testlist1n = list1.copy()
+                        testlist2n = list2.copy()
+                        if outcome < saveValue:          #Saving the best sum and data about it 
+                            saveValue = outcome
+                            itNubmer = listNo
+                            name = listName
+        testlist2n.append(testlist1n[itNubmer[0]])
+        testlist2n.append(testlist1n[itNubmer[1]])
+        testlist2n.append(testlist1n[itNubmer[2]])
+        testlist1n.remove(name[0])
+        testlist1n.remove(name[1])
+        testlist1n.remove(name[2])
+        if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
+        return [testlist1n,testlist2n,saveValue]
+    #
+    if diff == 4:
+        if sett.debug == True: print("[DBG - unUnD1e] The difference is 8, using 'diff == 4'")
+        with alive_bar(len(list1)*len(list1)*len(list1)*len(list1)) as bar:
+            for mem1 in range(len(list1)):
+                for mem2 in range(len(list1)):
+                    for mem3 in range(len(list1)):
+                        for mem4 in range(len(list1)):
+                            bar()
+                            if mem1 in [mem2,mem3,mem4] or mem2 in [mem1,mem3,mem4] or mem3 in [mem1,mem2,mem4] or mem4 in [mem1,mem2,mem3]: #Optimization
+                                continue
+                            if (str(mem1) + str(mem2) + str(mem3) + str(mem4)) in usedList:                                       #Optimization
+                                continue
+                            for i in range(4):
+                                for g in range(4):
+                                    for u in range(4):
+                                        for m in range(4):
+                                            if i == g or i == u or i == m or g == u: continue
+                                            if g == m or u == m: continue
+                                            listNo = [mem1,mem2,mem3,mem4]
+                                            usedList.append(str(listNo[i])+str(listNo[g])+str(listNo[u])+str(listNo[m]))
+                            listName = [testlist1n[mem1], testlist1n[mem2], testlist1n[mem3], testlist1n[mem4]]
+                            testlist2n.append(testlist1n[mem1])
+                            testlist2n.append(testlist1n[mem2])
+                            testlist2n.append(testlist1n[mem3])
+                            testlist2n.append(testlist1n[mem4])
+                            testlist1n.remove(listName[0])
+                            testlist1n.remove(listName[1])
+                            testlist1n.remove(listName[2])
+                            testlist1n.remove(listName[3])
+                            outcome = sumOfArrays(testlist1n, testlist1n)
+                            testlist1n = list1.copy()
+                            testlist2n = list2.copy()
+                            if outcome < saveValue:          #Saving the best sum and data about it 
+                                saveValue = outcome
+                                itNubmer = listNo
+                                name = listName
+        testlist2n.append(testlist1n[itNubmer[0]])
+        testlist2n.append(testlist1n[itNubmer[1]])
+        testlist2n.append(testlist1n[itNubmer[2]])
+        testlist2n.append(testlist1n[itNubmer[3]])
+        testlist1n.remove(name[0])
+        testlist1n.remove(name[1])
+        testlist1n.remove(name[2])
+        testlist1n.remove(name[3])
+        if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
+        if diff > 4:
+            print("Difference bigger than 8, currently not supported!")
+            time.sleep(15)
+            exit()
+        return [testlist1n,testlist2n,saveValue]
 #Algorithm for groups where the difference is bigger than 1
 def unevenUnevenAlgo(list1,list2):
     if (len(list1) - len(list2)) > 0:          #Dominant group1(List1)
-        domi = 0                               #Var for dominant group
         difference = (len(list1) - len(list2)) #Difference 
 
     else:                                      #Dominant group2(List2)
-        domi = 1                               #Var for dominant group
         difference = (len(list2) - len(list1)) #Difference 
+        buffer = list1
+        list1 = list2
+        list2 = buffer
 
-    if difference % 2 == 0:                    #1st case -- difference mod is 0
+    if difference % 2 == 0:                    #1st case -- difference mod 2 is 0
         difference = difference / 2            #1/2 of the dif
-        if domi == 0:                          #Dominant group1(list1)
-            for dif in range(int(difference)):
-                case = moveElements(list1,list2,dif)
-                list1 = case[0]
-                list2 = case[1]
-        if domi == 1:                          #Dominant group2(list2)
-            for dif in range(int(difference)):
-                case = moveElements(list2,list1,dif)
-                list1 = case[1]
-                list2 = case[0]
-    else:                                      #difference mod 2 is >0
-        if domi == 0:                          #Dominant group1(list1) -- saving one member to the buffer
-            buffer = list1[len(list1) - 1]
-            list1.pop(len(list1) - 1)
-        else:                                  #Dominant group2(list2) -- saving one member to the buffer
-            buffer = list2[len(list2) - 1]
-            list2.pop(len(list2) - 1)
+        case = unUnD1e(list1,list2,difference)
+        list1 = case[0]
+        list2 = case[1]
+    else:                                      #ODD numbers
+        print("[SYS] - Which option do you want to use:")         #Checks if the input is valid
+        print("[SYS] - 1. Faster algorithm but less accurate?")
+        print("[SYS] - 2. Slower algorithm but more accurate?")
+        while True:
+            uInput = input("Your input(1,2): ")
+            uInput = int(uInput)
+            if uInput == 1 or uInput == 2:
+                break
+            print("[ERROR] Invalid input! Only options are 1 or 2!")
+            print()
+            print()
+            continue
         #
-        difference = (difference - 1) / 2       #Difference was not updated thats why we need to -1
-        for dif in range(int(difference)):
-            if domi == 0: 
-                case = moveElements(list1,list2,dif)
-                list1 = case[0]
-                list2 = case[1]        
-            if domi == 1: 
-                case = moveElements(list2,list1,dif)
-                list1 = case[1]
-                list2 = case[0]
-    try:
-        list1.append(buffer)
-    except UnboundLocalError:
-        pass
+        print()
+        print()
+        if uInput == 2:
+            saveValue = 10000000
+            if sett.debug == True: print("[DBG - unUnD1e] Continuing with the slower algortihm!")
+            print("[SYS] - This process will be repeated a few times!")
+            for dif in range(len(list1)):
+                clist1 = list1.copy()
+                clist2 = list2.copy()
+                missMem = clist1[dif]
+                clist1.pop(dif)
+                case = unUnD1e(clist1,clist2,difference-1)
+                if case[2] < saveValue:
+                    saveValue = case[2]
+                    bestClist1 = case[0]
+                    bestClist2 = case[1]
+                    cmissedMem =  missMem
+            bestClist1.append(cmissedMem)
+            return[bestClist1,bestClist2]
+        if uInput == 1:
+            if sett.debug == True: print("[DBG - unUnD1e] Continuing with the faster algortihm!")
+            clist1 = list1.copy()
+            clist2 = list2.copy()
+            buffer = clist1[0]
+            clist1.pop(0)
+            case = unUnD1e(clist1,clist2,difference-1)
+            clist1 = case[0]
+            clist1.append(buffer)
+            clist2 = case[1]
+            return unevenGroups1(clist1,clist2, True)
     if sett.debug == True: 
         print()
         print("[DEBUG - unevenUnevenAlgo] List 1: {} len({}), List 2: {} len({})".format(list1,len(list1),list2,len(list2)))
         print()
     return [list1,list2]
-
-def evenAlgo(group1List, group2List):    #Plain dict creaton for the even algorithm
+#Plain dict creaton for the even algorithm
+def evenAlgo(group1List, group2List): 
     namesDict = {}
     storingDic = {}
     for lists1 in range(len(group1List)):
@@ -340,7 +516,8 @@ def evenAlgo(group1List, group2List):    #Plain dict creaton for the even algori
             if lists == (len(group1List) - 1):
                 namesDict.update({group1List[lists1] : storingDic})
                 storingDic = {}
-    return namesDict
+    if sett.debug==True: print(namesDict)
+    return namesDict                 #Returns dict
 
 #Making the groups of people, inputs two strings (Names of the groups)
 def groupMaker(group1, group2):
@@ -360,10 +537,10 @@ def groupMaker(group1, group2):
     #
     elif abs(len(group1List) - len(group2List)) > 1:    #More people are uneven
         rtrn = unevenUnevenAlgo(group1List,group2List)  #Returns the edited lists that are even or uneven
-        if len(rtrn[0]) == len(rtrn[1]):                #If the lists are even
+        if type(rtrn) is dict:                          #If it is a ready to go dictionary
+            return rtrn
+        if len(rtrn[0]) == len(rtrn[1]):                #If it is a list that needs to be converted into a dict          
             return evenAlgo(rtrn[0], rtrn[1])
-        else:                                           #If the difference between the lists is 1
-            return unevenGroups1(rtrn[0],rtrn[1],True)
     else:
         print("[FATAL ERR] Groupmaker")
 
@@ -409,3 +586,4 @@ group1 = groupMaker(fg, sg)                                                     
 outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')       #Algorithm
 sett.endTime = time.time()                                                                   #End of stopwatch
 finalOut(outcome)                                                                            #Final string editting 
+input()
