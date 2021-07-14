@@ -1,9 +1,10 @@
-import json, time, re, excel2json
+import json, time, re, excel2json, os
 from typing import Dict
 from hungarian_algorithm import algorithm
 from alive_progress import alive_bar
+from datetime import datetime
 class Values:
-    version = "0.7.1"
+    version = "0.8.1"
     debug = True                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
@@ -13,6 +14,8 @@ class Values:
     endTime   = 0                                   #End time of the operation
     group1 = []                                     #Group 1 list
     group2 = []                                     #Group 2 list
+    cacheList = []                                  #For caching
+    internationalSt = False                         #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
 sett = Values()                                     #Creating a global object
 
                                                     #Intial input, --IF DEBUG TRUE DISABLED-- .xls, .json file input
@@ -197,6 +200,10 @@ def categoryThirteenFourteen(mainParticipant, otherparticipant):
 #Execution two ints -- represeting members (Member ID - 1)
 def allCategories(mem1, mem2):
     together = categoryOne(mem1,mem2) + categoryTwoThree(mem1,mem2) + categoryFour(mem1,mem2) + categoryFiveSix(mem1,mem2) + categorySevenEight(mem1,mem2) +categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2)
+    firstp =  dataForParticipant(mem1)
+    secondp = dataForParticipant(mem2)
+    if sett.internationalSt == False and firstp[1] == "N" and secondp[1] == "N":
+        together += 10000
     return together*together
 
 
@@ -204,10 +211,10 @@ def allCategories(mem1, mem2):
 def outputEditor(output):
     outcome1 = re.findall("\d+", output)
     outcome2 = [int(i) for i in outcome1]
-    for a in range(2,len(outcome2),3):
-        outcome2[a] -= 1
-    for a in range(0,len(outcome2)):
-        outcome2[a] += 1
+    #for a in range(2,len(outcome2),3):
+        #outcome2[a] -= 1
+    #for a in range(0,len(outcome2)):
+        #outcome2[a] += 1
     return outcome2
 
 #Last phase of generating the input for the algortihm -- Only used with the uneven number of members
@@ -291,7 +298,22 @@ def sumOfArrays(array1, array2): #Input two arrays
             exe = allCategories(array1[lists1], array2[lists])
             sumAll += exe
     return sumAll
+#Cahing 
+def cacheSetter(numericalCombination, value):          #The first is the number from for loops, second number is the value
+    sortedCombination = "".join(sorted(str(numericalCombination)))
+    if sortedCombination in sett.cacheList:
+        return False
+    sett.cacheList.append(sortedCombination)
+    sett.cacheList.append(value)
+    return True
+def cacheGetter(numericalCombination):                                     #The first is the number from for loops
+    sortedCombination = "".join(sorted(str(numericalCombination)))
+    if sortedCombination in sett.cacheList:
+        index = sett.cacheList.index(sortedCombination)
+        return sett.cacheList[index + 1]                                    #Returns the value
+    return False
 
+#Cahing 
                                        #In case that we only want the smallest sum returned
 def unUnD1e(list1, list2, diff): #list, list,  - int, int 
     #
@@ -307,8 +329,13 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
         with alive_bar(len(list1)) as bar:
             for mem1 in range(len(list1)):       #Making the pairs and calculating the sums
                 bar()
+                listSave = testList1[mem1]
                 rtrn = moveElements(testList1,testList2,mem1)
-                outcome = sumOfArrays(rtrn[0], rtrn[1])
+                if cacheGetter(str(listSave) + str(mem1)) == False:                      #Not found un cache 
+                    outcome = sumOfArrays(rtrn[0], rtrn[1])
+                    cacheSetter(str(listSave) + str(mem1), outcome)
+                if cacheGetter(str(listSave) + str(mem1)) == True:
+                    outcome = cacheGetter(str(listSave) + str(mem1))
                 if outcome < saveValue:          #Saving the best sum and data about it 
                     saveValue = outcome
                     itNubmer = mem1
@@ -326,20 +353,26 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                     bar()
                     if mem1 == mem2:      #Checks if the numbers are equal
                         continue
-                    if (str(mem1) + str(mem2)) in usedList:                                       #Optimization
+                    if sorted(str(mem1) + str(mem2)) in usedList:                                       #Optimization
                         continue
-                    usedList.append(str(mem1) + str(mem2))
-                    usedList.append(str(mem2) + str(mem1))
+                    usedList.append(sorted(str(mem1) + str(mem2)))
                     listNo = [mem1,mem2]
                     listName = [testlist1n[mem1], testlist1n[mem2]]
                     testlist2n.append(testlist1n[mem1])
                     testlist2n.append(testlist1n[mem2])
                     testlist1n.remove(listName[0])
                     testlist1n.remove(listName[1])
-                    outcome = sumOfArrays(testlist1n, testlist1n)
+                    #
+                    if cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2)) == False:                      #Not found in cache 
+                        outcome = sumOfArrays(testlist1n, testlist1n)
+                        cacheSetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2), outcome)
+                    #
+                    if cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2)) != False:
+                        outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2))                     #Found in cache
+                    #
                     testlist1n = list1.copy()
                     testlist2n = list2.copy()
-                    if outcome < saveValue:          #Saving the best sum and data about it 
+                    if outcome < saveValue:          #Saving the best sum and data about it
                         saveValue = outcome
                         itNubmer = listNo
                         name = listName
@@ -359,14 +392,10 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                         bar()
                         if mem1 in [mem2,mem3] or mem2 in [mem1,mem3] or mem3 in [mem1,mem2] :     #Optimization
                             continue
-                        if (str(mem1) + str(mem2) + str(mem3)) in usedList:                                       #Optimization
+                        if sorted(str(mem1) + str(mem2) + str(mem3)) in usedList:                                       #Optimization
                             continue
-                        listNo = [mem1,mem2,mem3]                                                                 #Need the data
-                        for i in range(3):
-                            for g in range(3):
-                                for u in range(3):
-                                    if i == g or i == u or g == u: continue
-                                    usedList.append(str(listNo[i])+str(listNo[g])+str(listNo[u]))
+                        usedList.append(sorted(str(mem1) + str(mem2) + str(mem3)))
+                        listNo = [mem1,mem2,mem3]
                         listName = [testlist1n[mem1], testlist1n[mem2], testlist1n[mem3]]
                         testlist2n.append(testlist1n[mem1])
                         testlist2n.append(testlist1n[mem2])
@@ -374,7 +403,14 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                         testlist1n.remove(listName[0])
                         testlist1n.remove(listName[1])
                         testlist1n.remove(listName[2])
-                        outcome = sumOfArrays(testlist1n, testlist1n)
+                        #
+                        if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3)) == False:
+                            outcome = sumOfArrays(testlist1n, testlist1n)
+                            cacheSetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3), outcome)
+                        #
+                        if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3)) != False:
+                            outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3))
+                        #
                         testlist1n = list1.copy()
                         testlist2n = list2.copy()
                         if outcome < saveValue:          #Saving the best sum and data about it 
@@ -400,16 +436,10 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                             bar()
                             if mem1 in [mem2,mem3,mem4] or mem2 in [mem1,mem3,mem4] or mem3 in [mem1,mem2,mem4] or mem4 in [mem1,mem2,mem3]: #Optimization
                                 continue
-                            if (str(mem1) + str(mem2) + str(mem3) + str(mem4)) in usedList:                                       #Optimization
+                            if sorted((str(mem1) + str(mem2) + str(mem3) + str(mem4))) in usedList:                                       #Optimization
                                 continue
-                            for i in range(4):
-                                for g in range(4):
-                                    for u in range(4):
-                                        for m in range(4):
-                                            if i == g or i == u or i == m or g == u: continue
-                                            if g == m or u == m: continue
-                                            listNo = [mem1,mem2,mem3,mem4]
-                                            usedList.append(str(listNo[i])+str(listNo[g])+str(listNo[u])+str(listNo[m]))
+                            usedList.append(sorted(str((str(mem1) + str(mem2) + str(mem3) + str(mem4)))))               #Optimization
+                            listNo = [mem1,mem2,mem3,mem4]
                             listName = [testlist1n[mem1], testlist1n[mem2], testlist1n[mem3], testlist1n[mem4]]
                             testlist2n.append(testlist1n[mem1])
                             testlist2n.append(testlist1n[mem2])
@@ -419,7 +449,11 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                             testlist1n.remove(listName[1])
                             testlist1n.remove(listName[2])
                             testlist1n.remove(listName[3])
-                            outcome = sumOfArrays(testlist1n, testlist1n)
+                            if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4)) == False:
+                                outcome = sumOfArrays(testlist1n, testlist1n)
+                                cacheSetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4), outcome)
+                            if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4)) != False:
+                                outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4))
                             testlist1n = list1.copy()
                             testlist2n = list2.copy()
                             if outcome < saveValue:          #Saving the best sum and data about it 
@@ -488,7 +522,7 @@ def unevenUnevenAlgo(list1,list2):
                     bestClist2 = case[1]
                     cmissedMem =  missMem
             bestClist1.append(cmissedMem)
-            return[bestClist1,bestClist2]
+            return unevenGroups1(bestClist1,bestClist2, True)
         if uInput == 1:
             if sett.debug == True: print("[DBG - unUnD1e] Continuing with the faster algortihm!")
             clist1 = list1.copy()
@@ -555,23 +589,41 @@ def finalOut(outcome):
     time_convert(sett.endTime - sett.startTime)                                             #Prints out the time it took
     print()
     print("Numbers are matching with the Name IDs!!")
+    f = open("roommates.txt","w")
+    d = datetime.now().strftime("%d/%B/%Y - %H:%M:%S")
+    f.write(f"[{d}] \n")
     for a in range(len(outcome)):                                                           #Prints out by rooms
         out = outputEditor(str(outcome[a]))
-        print("Room {}: {}, {}".format(a+1, out[0], out[1]))
+        print("Room {}: {}, {} with a pair-value {}".format(a+1, out[0], out[1], out[2]))
+        f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[0], out[1], out[2]))
     if sett.missingParticipant != False:
         print("Room {}: {}, - alone".format(a+2, sett.missingParticipant+1))
-
+        f.write("Room {}: {}, - alone \n".format(a+2, sett.missingParticipant+1))
+    print()
+    path = os.getcwd() + r"\roommates.txt"
+    print(f"[SYS] File roommates.txt was created! It can be found here: {path} \n")
+    f.close()
 
 #Prints out some basic data
+
 def announceData():
     print()
-    print("Version: {}".format(sett.version))
-    print()
+    print("Version: {} \n".format(sett.version))
     print("Number of registered participants: {}".format(numberOfParticipants()))
-    print("Number of registered questions: {}".format(len(getAllList())))
-    print()
+    print("Number of registered questions: {} \n".format(len(getAllList())))
 
-
+def internationalStudents():
+    while True:
+        print()
+        print("Can one room be composed of 2 international students? [y/n]")
+        a = input()
+        if a == "y" or a == "Y":
+            sett.internationalSt = True
+            return
+        if a == "n" or a == "N": 
+            sett.internationalSt = False
+            return
+        print("[ERR] Invalid input!")
 #Announces data
 announceData()
 time.sleep(2)
@@ -581,9 +633,11 @@ time.sleep(2)
 print("Which groups should be used! eg. F3, F4")
 fg = input("Group one: ")
 sg = input("Group two: ")
+internationalStudents()
 sett.startTime = time.time()                                                                 #Start of stopwatch
 group1 = groupMaker(fg, sg)                                                                  #Makes the groups and turns them into DICT with generated numbers
 outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')       #Algorithm
 sett.endTime = time.time()                                                                   #End of stopwatch
-finalOut(outcome)                                                                            #Final string editting 
-input()
+finalOut(outcome)                                                                          #Final string editting 
+input("Press enter to exit!")
+exit(0)
