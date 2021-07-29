@@ -4,11 +4,12 @@ from hungarian_algorithm import algorithm
 from alive_progress import alive_bar
 from datetime import datetime
 class Values:
-    version = "0.8.1"
+    version = "0.9.1"
     debug = True                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
     jsonName  = "Form Responses.json"               #Settings for debug 2
+    questionOffsets = {"Group" : 0, "Slovak" : 1, "Name ID" : 2, "Q1" : 3, "Q2Q3" : [4,5], "Q4" : 6, "Q5Q6" : [7,8], "Q7Q8": [9,10], "Q9Q10" : [11,12], "Q11Q12" : [13,14], "Q13Q14" : [15,16]}
     allOptionsList = []                             #Loading all the questions 
     startTime = 0                                   #Start time of the operation 
     endTime   = 0                                   #End time of the operation
@@ -17,6 +18,40 @@ class Values:
     cacheList = []                                  #For caching
     internationalSt = False                         #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
 sett = Values()                                     #Creating a global object
+
+def makeLog(typeOfLog = "LOG", where = "", stringToPass = "NULL", sprint = False):
+    """
+    Making logs into the new logging file.
+    1. Arg - ['LOG' - Log, 'ERR' - ERROR, 'FERR' - FATAL ERROR exits, 'CLR' - Clears the whole file] -- If none then "LOG"
+    2. Arg - String/Int more specification, function-- etc.. -- If none then ""
+    3. Arg - String/Int that should be passed into the log! -- If none then "NULL"
+    4. Arg - Should it be printed in the console? -- If none then "False"
+    """
+    if typeOfLog == "LOG":
+        newString = f"[LOG - {where}] {stringToPass} \n"
+    elif typeOfLog == "ERR":
+        newString = f"[ERROR - {where}] {stringToPass} \n"
+    elif typeOfLog == "FERR":
+        newString = f"[FATAL ERROR - {where}] {stringToPass} \n"
+    elif typeOfLog == "CLR":
+        newString = ""
+        file = open("rmLog.txt", "w")
+        file.write(newString)
+        file.close()
+    else:
+        newString = f"{'[ERROR] - '} makeLog(), arg1 '{typeOfLog}' is invalid! \n"
+    if sprint:
+        print(f"\n{newString}\n")
+    file = open("rmLog.txt", "a")
+    file.write(newString)
+    file.close()
+    if typeOfLog == "FERR":
+        path = os.getcwd() + r"\rmLog.txt"
+        print(f"Check rmLog.txt for more information! It can be found here {path}!")
+        print("\n\n")
+        input("Press enter to exit!")
+        exit(0)
+    return True
 
                                                     #Intial input, --IF DEBUG TRUE DISABLED-- .xls, .json file input
 if sett.debug == True:
@@ -32,7 +67,7 @@ else:
                 excel2json.convert_from_file(str(sett.excelName))
         
         except NameError:                                                                              #File not found, try one more time
-            print("[ERR] File not found!")
+            makeLog("ERR", "XLS file converter","File not found!", True)
             print("What is the name of the of the file? eg. prefs_table.xls")
             sett.excelName = input()
             excel2json.convert_from_file(str(sett.excelName))
@@ -44,7 +79,7 @@ else:
             json.loads(open(str(sett.jsonName)).read())
             break
         except FileNotFoundError:
-            print("[ERR] File not found!")
+            makeLog("ERR", "JSON file selector", "File not found!", True)
 
 #Converts time -- for the stopwatch
 def time_convert(sec):
@@ -57,8 +92,10 @@ def time_convert(sec):
 def getAllList():
     res = json.loads(open(str(sett.jsonName)).read())
     list = []
-    for key in res[0].keys():
-        list.append(key)
+    #Add a log event
+    if res[1].keys() == res[2].keys():
+        for key in res[0].keys():
+            list.append(key)
     return list
 
 #Loading all the quesitons
@@ -71,18 +108,18 @@ def lookForData(jClass, numberWhere):
     try:
         return jdata[numberWhere][jClass]
     except KeyError:
-        print("Not existing")
+        makeLog("LOG", f"lookForData({jClass},{numberWhere})", "Data not found!")
         return False
 
-#Returns the number of the participants(int), !!!starts with a zero
+#Returns the number of the participants(int), !!!starts with a 1
 def numberOfParticipants():
-    nOfparticipants = -1
+    nOfparticipants = 0
     while True:
         try:
             lookForData("Name ID", nOfparticipants)
         except IndexError:
             break
-        nOfparticipants =  nOfparticipants + 1
+        nOfparticipants += 1
     return nOfparticipants
 
 
@@ -98,19 +135,19 @@ def dataForParticipant(number):
 def categoryOne(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    minus = mainP[3] - otherP[3]
+    minus = mainP[sett.questionOffsets["Q1"]] - otherP[sett.questionOffsets["Q1"]]
     return abs(minus) * 2
 
 #Q2,Q3 - Speaker music + Playing music, two integers -- Special case
 def categoryTwoThree(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[5]
-    otherPq5 = 6 - otherP[5]
-    calc1 = mainP[4] - otherPq5
+    mainPq5 = 6 - mainP[sett.questionOffsets["Q2Q3"][1]]
+    otherPq5 = 6 - otherP[sett.questionOffsets["Q2Q3"][1]]
+    calc1 = mainP[sett.questionOffsets["Q2Q3"][0]] - otherPq5
     if calc1 < 0:
         calc1 = calc1 * (-1)
-    calc2 = mainPq5 - otherP[4]
+    calc2 = mainPq5 - otherP[sett.questionOffsets["Q2Q3"][0]]
     if calc2 < 0:
         calc2 = calc2 * (-1)
     return calc1 + calc2
@@ -119,27 +156,27 @@ def categoryTwoThree(mainParticipant, otherparticipant):
 def categoryFour(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    minus = mainP[6] - otherP[6]
+    minus = mainP[sett.questionOffsets["Q4"]] - otherP[sett.questionOffsets["Q4"]]
     return abs(minus) * 2
 
 #Q5,Q6 - Sharing of items, reversed special, two ints needed 
 def categoryFiveSix(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[8]
-    otherPq5 = 6 - otherP[8]
-    calc1 = mainP[7] - otherPq5
-    calc2 = mainPq5 - otherP[7]
+    mainPq5 = 6 - mainP[sett.questionOffsets["Q5Q6"][1]]
+    otherPq5 = 6 - otherP[sett.questionOffsets["Q5Q6"][1]]
+    calc1 = mainP[sett.questionOffsets["Q5Q6"][0]] - otherPq5
+    calc2 = mainPq5 - otherP[sett.questionOffsets["Q5Q6"][0]]
     return abs(calc1) + abs(calc2)
 
 #Q7,Q8 - Quiet space, reversed special, two ints neeeded 
 def categorySevenEight(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[10]
-    otherPq5 = 6 - otherP[10]
-    calc1 = mainP[9] - otherPq5
-    calc2 = mainPq5 - otherP[9]
+    mainPq5 = 6 - mainP[sett.questionOffsets["Q7Q8"][1]]
+    otherPq5 = 6 - otherP[sett.questionOffsets["Q7Q8"][1]]
+    calc1 = mainP[sett.questionOffsets["Q7Q8"][0]] - otherPq5
+    calc2 = mainPq5 - otherP[sett.questionOffsets["Q7Q8"][0]]
 
     return abs(calc1) + abs(calc2)
 
@@ -147,20 +184,20 @@ def categorySevenEight(mainParticipant, otherparticipant):
 def categoryNineTen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = mainP[12]
-    otherPq5 = otherP[12]
-    calc1 = mainP[11] - otherPq5
-    calc2 = mainPq5 - otherP[11]
+    mainPq5 = mainP[sett.questionOffsets["Q9Q10"][1]]
+    otherPq5 = otherP[sett.questionOffsets["Q9Q10"][1]]
+    calc1 = mainP[sett.questionOffsets["Q9Q10"][0]] - otherPq5
+    calc2 = mainPq5 - otherP[sett.questionOffsets["Q9Q10"][0]]
     return abs(calc1) + abs(calc2)
 
 #Q11,Q12 - Living space, special but not reversed, two ints needed 
 def categoryElevenTwelve(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = mainP[14]
-    otherPq5 = otherP [14]
-    calc1 = mainP[13] - otherPq5
-    calc2 = mainPq5 - otherP[13]
+    mainPq5 = mainP[sett.questionOffsets["Q11Q12"][1]]
+    otherPq5 = otherP [sett.questionOffsets["Q11Q12"][1]]
+    calc1 = mainP[sett.questionOffsets["Q11Q12"][0]] - otherPq5
+    calc2 = mainPq5 - otherP[sett.questionOffsets["Q11Q12"][0]]
     return abs(calc1) + abs(calc2)
 
 #Q13,Q14 - Sleeping, special alogorithm
@@ -168,11 +205,11 @@ def categoryThirteenFourteen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
     #first person
-    sleepF1 = mainP[15] - otherP[15]
-    wakeF1 = mainP[16] - otherP[16]
+    sleepF1 = mainP[sett.questionOffsets["Q13Q14"][0]] - otherP[sett.questionOffsets["Q13Q14"][0]]
+    wakeF1 = mainP[sett.questionOffsets["Q13Q14"][1]] - otherP[sett.questionOffsets["Q13Q14"][1]]
     #second person
-    sleepF2 = otherP[15] - mainP[15]
-    wakeF2 = otherP[16] - mainP[16]
+    sleepF2 = otherP[sett.questionOffsets["Q13Q14"][0]] - mainP[sett.questionOffsets["Q13Q14"][0]]
+    wakeF2 = otherP[sett.questionOffsets["Q13Q14"][1]] - mainP[sett.questionOffsets["Q13Q14"][1]]
     #Person one sleep
     if sleepF1 < 0:
         person1s = (-sleepF1 + 1)/(6-mainP[14])/(5/4)
@@ -211,10 +248,10 @@ def allCategories(mem1, mem2):
 def outputEditor(output):
     outcome1 = re.findall("\d+", output)
     outcome2 = [int(i) for i in outcome1]
-    #for a in range(2,len(outcome2),3):
-        #outcome2[a] -= 1
-    #for a in range(0,len(outcome2)):
-        #outcome2[a] += 1
+    for a in range(2,len(outcome2),3):
+        outcome2[a] -= 1
+    for a in range(0,len(outcome2)):
+        outcome2[a] += 1
     return outcome2
 
 #Last phase of generating the input for the algortihm -- Only used with the uneven number of members
@@ -241,7 +278,7 @@ def moveElements(list1, list2, listNumber1):
 #Used for unven groups, difference bettween members needs to be 1
 def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
     if abs(len(group1List) - len(group2List)) != 1:
-        print("[ERR] Difference bettween the number of participants is not 1!!!")
+        makeLog("FERR", "unevenGroups1()", "Difference bettween the number of participants is not 1!", True)
         return False
     if len(group1List) - len(group2List) == 1: #In this case the dominant group is g1
         dominantGroup = 0
@@ -291,7 +328,7 @@ def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Retur
     return checker     
 
 def sumOfArrays(array1, array2): #Input two arrays
-    if len(array1) != len(array2): raise Exception("[sumOfArrays] - Len Array1 and Len Array2 not matching!!!")
+    if len(array1) != len(array2): makeLog("FERR", "sumOfArrays", "Len Array1 and Len Array2 not matching", True)
     sumAll = 0
     for lists1 in range(len(array1)):
         for lists in range(len(array2)):
@@ -499,11 +536,10 @@ def unevenUnevenAlgo(list1,list2):
             uInput = int(uInput)
             if uInput == 1 or uInput == 2:
                 break
-            print("[ERROR] Invalid input! Only options are 1 or 2!")
-            print()
-            print()
-            continue
+            print("[ERROR] Invalid input! Only options are 1 or 2! \n\n")
+            makeLog("LOG", "unevenUnevenAlgo - Algo selection", "Bad user input!")
         #
+        makeLog("LOG", "Faster/Slower algorithm", f"Input: {uInput}")
         print()
         print()
         if uInput == 2:
@@ -563,6 +599,8 @@ def groupMaker(group1, group2):
         elif lookForData("Group", group) == group2:
             group2List.append(int(lookForData("Name ID", group) - 1))
     #
+    if len(group1List) == 0 or len(group2List) == 0:
+        makeLog("FERR", "groupMaker", f"One of the groups has 0 participants, G1: {len(group1List)}, G2: {len(group2List)}", True)
     if abs(len(group1List) - len(group2List)) == 1:   #Calls the function for uneven numbers with difference 1
         return unevenGroups1(group1List,group2List,True)
     #
@@ -576,7 +614,7 @@ def groupMaker(group1, group2):
         if len(rtrn[0]) == len(rtrn[1]):                #If it is a list that needs to be converted into a dict          
             return evenAlgo(rtrn[0], rtrn[1])
     else:
-        print("[FATAL ERR] Groupmaker")
+        makeLog("FERR", "groupMaker()", "Unknown", True)
 
     
 #Final output system, edits the output and puts it into groups, input should be the output from the algorithm
@@ -591,26 +629,39 @@ def finalOut(outcome):
     print("Numbers are matching with the Name IDs!!")
     f = open("roommates.txt","w")
     d = datetime.now().strftime("%d/%B/%Y - %H:%M:%S")
+    outputSupervisor = []
+    trigger = False
     f.write(f"[{d}] \n")
     for a in range(len(outcome)):                                                           #Prints out by rooms
         out = outputEditor(str(outcome[a]))
         print("Room {}: {}, {} with a pair-value {}".format(a+1, out[0], out[1], out[2]))
+        if out[0] in outputSupervisor or out[1] in outputSupervisor:
+            trigger = True
+        outputSupervisor.append(out[0])
+        outputSupervisor.append(out[1])
         f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[0], out[1], out[2]))
     if sett.missingParticipant != False:
         print("Room {}: {}, - alone".format(a+2, sett.missingParticipant+1))
         f.write("Room {}: {}, - alone \n".format(a+2, sett.missingParticipant+1))
+        if sett.missingParticipant+1 in outputSupervisor:
+            trigger = True
     print()
     path = os.getcwd() + r"\roommates.txt"
-    print(f"[SYS] File roommates.txt was created! It can be found here: {path} \n")
+    makeLog("LOG", "finalOut", f"File roommates.txt was created! It can be found here: {path}", True)
     f.close()
+    if trigger:
+        makeLog("FERR", "Output", "One participant detected in multiple rooms", True)
 
 #Prints out some basic data
 
 def announceData():
-    print()
-    print("Version: {} \n".format(sett.version))
+    print("\nVersion: {} \n".format(sett.version))
     print("Number of registered participants: {}".format(numberOfParticipants()))
     print("Number of registered questions: {} \n".format(len(getAllList())))
+    makeLog("LOG", "STARTUP", f"Version: {sett.version}")
+    makeLog("LOG", "STARTUP", f"Debug: {sett.debug}")
+    makeLog("LOG", "STARTUP", f"Number of registered participants: {numberOfParticipants()}")
+    makeLog("LOG", "STARTUP", f"Number of registered questions: {len(getAllList())}")
 
 def internationalStudents():
     while True:
@@ -619,25 +670,34 @@ def internationalStudents():
         a = input()
         if a == "y" or a == "Y":
             sett.internationalSt = True
+            makeLog("LOG", "internationalStudents()", "sett.internationalSt = True")
             return
         if a == "n" or a == "N": 
             sett.internationalSt = False
+            makeLog("LOG", "internationalStudents()", "sett.internationalSt = False")
             return
-        print("[ERR] Invalid input!")
+        makeLog("ERR", "internationalStudents()", "Invalid input!", True)
 #Announces data
-announceData()
-time.sleep(2)
+def checkGroups():
+    pass
+def runtime():
+    makeLog("CLR") #Clears the LOG file
+    announceData()
+    #Input group
+    print("Which groups should be used! eg. F3, F4")
+    fg = input("Group one: ")
+    sg = input("Group two: ")
+    makeLog("LOG", "input Groups",f"Group 1: {fg}, Second Group: {sg}")
+    internationalStudents()
+    sett.startTime = time.time()                                                                 #Start of stopwatch
+    group1 = groupMaker(fg, sg)                                                                  #Makes the groups and turns them into DICT with generated numbers
+    print(group1)
+    print(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list') )
+    outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')       #Algorithm
+    sett.endTime = time.time()                                                                   #End of stopwatch
+    finalOut(outcome)                                                                            #Final string editting 
+    input("Press enter to exit!")
+    makeLog("LOG","exit","Program has exited with code 0")
+    exit(0)
 
-
-#Input group
-print("Which groups should be used! eg. F3, F4")
-fg = input("Group one: ")
-sg = input("Group two: ")
-internationalStudents()
-sett.startTime = time.time()                                                                 #Start of stopwatch
-group1 = groupMaker(fg, sg)                                                                  #Makes the groups and turns them into DICT with generated numbers
-outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')       #Algorithm
-sett.endTime = time.time()                                                                   #End of stopwatch
-finalOut(outcome)                                                                          #Final string editting 
-input("Press enter to exit!")
-exit(0)
+runtime()
