@@ -9,7 +9,8 @@ class Values:
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
     jsonName  = "Form Responses.json"               #Settings for debug 2
-    questionOffsets = {"Group" : 0, "Slovak" : 1, "Name ID" : 2, "Q1" : 3, "Q2Q3" : [4,5], "Q4" : 6, "Q5Q6" : [7,8], "Q7Q8": [9,10], "Q9Q10" : [11,12], "Q11Q12" : [13,14], "Q13Q14" : [15,16]}
+    questionOffsets = {"Group" : 0, "Mixed" : 100,"Slovak" : 1, "Name ID" : 2, "Q1" : 3, "Q2Q3" : [4,5],
+    "Q4" : 6, "Q5Q6" : [7,8], "Q7Q8": [9,10], "Q9Q10" : [11,12], "Q11Q12" : [13,14], "Q13Q14" : [15,16]} #Update mixed
     allOptionsList = []                             #Loading all the questions 
     startTime = 0                                   #Start time of the operation 
     endTime   = 0                                   #End time of the operation
@@ -17,6 +18,7 @@ class Values:
     group2 = []                                     #Group 2 list
     cacheList = []                                  #For caching
     internationalSt = False                         #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
+    mixedhalls = True                               #True - Program will take into account the mixing rules \ False - It wont 
 sett = Values()                                     #Creating a global object
 
 def makeLog(typeOfLog = "LOG", where = "", stringToPass = "NULL", sprint = False):
@@ -239,7 +241,11 @@ def allCategories(mem1, mem2):
     together = categoryOne(mem1,mem2) + categoryTwoThree(mem1,mem2) + categoryFour(mem1,mem2) + categoryFiveSix(mem1,mem2) + categorySevenEight(mem1,mem2) +categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2)
     firstp =  dataForParticipant(mem1)
     secondp = dataForParticipant(mem2)
-    if sett.internationalSt == False and firstp[1] == "N" and secondp[1] == "N":
+    if sett.internationalSt == False and firstp[sett.questionOffsets["Slovak"]] == "N" and secondp[sett.questionOffsets["Slovak"]] == "N":
+        together += 10000
+    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "Y" and secondp[sett.questionOffsets["Mixed"]] == "NN" and 1 == 2:    #Enable the execution
+        together += 10000
+    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "NN" and secondp[sett.questionOffsets["Mixed"]] == "Y" and 1 == 2:    #Unlock it 
         together += 10000
     return together*together
 
@@ -676,9 +682,27 @@ def internationalStudents():
             sett.internationalSt = False
             makeLog("LOG", "internationalStudents()", "sett.internationalSt = False")
             return
-        makeLog("ERR", "internationalStudents()", "Invalid input!", True)
-#Announces data
-def checkGroups():
+        makeLog("ERR", "internationalStudents()", f"Invalid input! Input was {a}", True)
+def mixedHalls():
+    pass
+
+def mixedGroups():
+    check = True
+    while check:
+        print("Should the program take into account 'Mixed' preferences? [y/n]")
+        a = input()
+        if a == "y" or a == "Y":
+            sett.mixedhalls = True
+            makeLog("LOG", "mixedGroups()", "sett.mixedhalls = True")
+            print("\n\n\n\n")
+            return
+        if a == "n" or a == "N": 
+            sett.mixedhalls = False
+            makeLog("LOG", "internationalStudents()", "sett.internationalSt = False")
+            print("\n\n\n\n")
+            return
+        makeLog("ERR", "mixedGroups()", f"Invalid input! Input was {a}", True)
+
     pass
 def runtime():
     makeLog("CLR") #Clears the LOG file
@@ -689,6 +713,7 @@ def runtime():
     sg = input("Group two: ")
     makeLog("LOG", "input Groups",f"Group 1: {fg}, Second Group: {sg}")
     internationalStudents()
+    mixedGroups()
     sett.startTime = time.time()                                                                 #Start of stopwatch
     group1 = groupMaker(fg, sg)                                                                  #Makes the groups and turns them into DICT with generated numbers
     print(group1)
