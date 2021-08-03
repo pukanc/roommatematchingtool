@@ -1,24 +1,31 @@
 import json, time, re, excel2json, os
 from typing import Dict
+import km_matcher as km
 from hungarian_algorithm import algorithm
 from alive_progress import alive_bar
 from datetime import datetime
 class Values:
-    version = "0.9.1"
+    version = "1.0.0"
     debug = True                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
-    jsonName  = "Form Responses.json"               #Settings for debug 2
-    questionOffsets = {"Group" : 0, "Mixed" : 100,"Slovak" : 1, "Name ID" : 2, "Q1" : 3, "Q2Q3" : [4,5],
-    "Q4" : 6, "Q5Q6" : [7,8], "Q7Q8": [9,10], "Q9Q10" : [11,12], "Q11Q12" : [13,14], "Q13Q14" : [15,16]} #Update mixed
+    jsonName  = "Form Responses 1.json"             #Settings for debug 2 
+    questionOffsets = {"Group" : 0, "Name ID" : 1 ,"Slovak" : 2, "RA" : 3, "Ban" : 4,"Hall" : 5, "Mixed" : 6 ,"Q1" : 7, "Q2Q3" : [8,9],
+    "Q4" : 10, "Q5Q6" : [11,12], "Q7Q8": [13,14], "Q9Q10" : [15,16], "Q11Q12" : [17,18], "Q13Q14" : [19,20,21]} 
     allOptionsList = []                             #Loading all the questions 
     startTime = 0                                   #Start time of the operation 
     endTime   = 0                                   #End time of the operation
     group1 = []                                     #Group 1 list
     group2 = []                                     #Group 2 list
     cacheList = []                                  #For caching
+    dictionary = {}                                 #Used in the output system
+    #
     internationalSt = False                         #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
-    mixedhalls = True                               #True - Program will take into account the mixing rules \ False - It wont 
+    oldStudentsHall = True                          #If true "Hall" will be taken into account - If false it wont
+    mixedhalls = True                               #True - Program will take into account the mixing rules \ False - It wont -- Mixing rules "Mixed"
+    raBan = True                                    #If true two RA members in a matching will get a penalty
+    memberBans = True                               #If true then members who share the same ban number will get a penalty
+
 sett = Values()                                     #Creating a global object
 
 def makeLog(typeOfLog = "LOG", where = "", stringToPass = "NULL", sprint = False):
@@ -90,6 +97,7 @@ def time_convert(sec):
   hours = mins // 60
   mins = mins % 60
   print("Results calculated, it took {0}h:{1}m:{2}s to calculate!".format(int(hours),int(mins),round(int(sec))))
+  makeLog("LOG", "time_convert()", "Results calculated, it took {0}h:{1}m:{2}s to calculate!".format(int(hours),int(mins),round(int(sec))))
 #Handling of the questions -- All the questions are returned in a list
 def getAllList():
     res = json.loads(open(str(sett.jsonName)).read())
@@ -104,8 +112,13 @@ def getAllList():
 sett.allOptionsList = getAllList()
 
 
-#Searches in the JSON file -- Name of the attribute and the number of the block where it is located (starts with zero)
+
 def lookForData(jClass, numberWhere):
+    """
+    Searches in the JSON file -- Name of the attribute and the number of the block where it is located (starts with zero)
+    """
+    if jClass not in sett.allOptionsList:
+        jClass = sett.allOptionsList[jClass]
     jdata = json.loads(open(str(sett.jsonName)).read())
     try:
         return jdata[numberWhere][jClass]
@@ -118,7 +131,7 @@ def numberOfParticipants():
     nOfparticipants = 0
     while True:
         try:
-            lookForData("Name ID", nOfparticipants)
+            lookForData(sett.questionOffsets["Name ID"], nOfparticipants)
         except IndexError:
             break
         nOfparticipants += 1
@@ -132,6 +145,7 @@ def dataForParticipant(number):
     for i in range(0,len(getAllList())):
         data.append(jdata[number][sett.allOptionsList[i]])
     return data
+
 #---------------------------------------------------------------------------------------------------------
 #Q1 - Window - Doulbe points - Two integers needed
 def categoryOne(mainParticipant, otherparticipant):
@@ -207,29 +221,29 @@ def categoryThirteenFourteen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
     #first person
-    sleepF1 = mainP[sett.questionOffsets["Q13Q14"][0]] - otherP[sett.questionOffsets["Q13Q14"][0]]
-    wakeF1 = mainP[sett.questionOffsets["Q13Q14"][1]] - otherP[sett.questionOffsets["Q13Q14"][1]]
+    sleepF1 = mainP[sett.questionOffsets["Q13Q14"][1]] - otherP[sett.questionOffsets["Q13Q14"][1]]
+    wakeF1 = mainP[sett.questionOffsets["Q13Q14"][2]] - otherP[sett.questionOffsets["Q13Q14"][2]]
     #second person
-    sleepF2 = otherP[sett.questionOffsets["Q13Q14"][0]] - mainP[sett.questionOffsets["Q13Q14"][0]]
-    wakeF2 = otherP[sett.questionOffsets["Q13Q14"][1]] - mainP[sett.questionOffsets["Q13Q14"][1]]
+    sleepF2 = otherP[sett.questionOffsets["Q13Q14"][1]] - mainP[sett.questionOffsets["Q13Q14"][1]]
+    wakeF2 = otherP[sett.questionOffsets["Q13Q14"][2]] - mainP[sett.questionOffsets["Q13Q14"][2]]
     #Person one sleep
     if sleepF1 < 0:
-        person1s = (-sleepF1 + 1)/(6-mainP[14])/(5/4)
+        person1s = (-sleepF1 + 1)/(6-mainP[sett.questionOffsets["Q13Q14"][0]])/(5/4)
     else:
         person1s = 0
     #Person two sleep
     if sleepF2 < 0:
-        person2s = (-sleepF2 + 1)/(6-otherP[14])/(5/4)
+        person2s = (-sleepF2 + 1)/(6-otherP[sett.questionOffsets["Q13Q14"][0]])/(5/4)
     else:
         person2s = 0
     #Person one wake
     if wakeF1 > 0:
-        person1w = (wakeF1 + 1)/(6-mainP[14])/(5/4)
+        person1w = (wakeF1 + 1)/(6-mainP[sett.questionOffsets["Q13Q14"][0]])/(5/4)
     else:
         person1w = 0
     #Person two wake
     if wakeF2 > 0:
-        person2w = (wakeF2 + 1)/(6-otherP[14])/(5/4)
+        person2w = (wakeF2 + 1)/(6-otherP[sett.questionOffsets["Q13Q14"][0]])/(5/4)
     else:
         person2w = 0
     return (person1w + person2w + person1s + person2s) * 2
@@ -241,27 +255,62 @@ def allCategories(mem1, mem2):
     together = categoryOne(mem1,mem2) + categoryTwoThree(mem1,mem2) + categoryFour(mem1,mem2) + categoryFiveSix(mem1,mem2) + categorySevenEight(mem1,mem2) +categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2)
     firstp =  dataForParticipant(mem1)
     secondp = dataForParticipant(mem2)
+    #RA matching
+    if sett.raBan == True and firstp[sett.questionOffsets["RA"]] != "" and firstp[sett.questionOffsets["RA"]] == secondp[sett.questionOffsets["RA"]] and firstp[sett.questionOffsets["RA"]] == "Y":
+        together += 10000
+        #Penalty for two ARs
+    #Member bans
+    if sett.memberBans == True and firstp[sett.questionOffsets["Ban"]] != "" and firstp[sett.questionOffsets["Ban"]] == secondp[sett.questionOffsets["Ban"]]:
+        together += 100000
+    #International students
     if sett.internationalSt == False and firstp[sett.questionOffsets["Slovak"]] == "N" and secondp[sett.questionOffsets["Slovak"]] == "N":
         together += 10000
-    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "Y" and secondp[sett.questionOffsets["Mixed"]] == "NN" and 1 == 2:    #Enable the execution
+    #MixedHalls 
+    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "Y" and secondp[sett.questionOffsets["Mixed"]] == "NN" :
         together += 10000
-    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "NN" and secondp[sett.questionOffsets["Mixed"]] == "Y" and 1 == 2:    #Unlock it 
-        together += 10000
+    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "NN" and secondp[sett.questionOffsets["Mixed"]] == "Y":
+        together += 100000
+    #Old students hall
+    if sett.oldStudentsHall == True and firstp[sett.questionOffsets["Hall"]] != "" and secondp[sett.questionOffsets["Hall"]] != "" and firstp[sett.questionOffsets["Hall"]] != secondp[sett.questionOffsets["Hall"]]:
+        together += 100000
     return together*together
 
 
-#Edits the output, adds1 to the number so it alligns with the User ID
-def outputEditor(output):
-    outcome1 = re.findall("\d+", output)
-    outcome2 = [int(i) for i in outcome1]
-    for a in range(2,len(outcome2),3):
-        outcome2[a] -= 1
-    for a in range(0,len(outcome2)):
-        outcome2[a] += 1
-    return outcome2
+def outputEditor(output, getSumOutOfAlgo = False):
+    """
+    1. Arg - Output from the Hungarian Algorithm
+    2. Arg - If true the program will pass the sum output from the algorithm
+    Alligns the numbers with the real PID numbers.
+    Outputs [[0,1,2],[4,5,6]]
+    """
+    rtrnList = []
+    for mem in range(len(output) - 1):
+        string = output[mem]
+        newOut = string[0].split(",")
+        rtrnList.append([int(newOut[0]),int(newOut[1]),float(newOut[2])])
+    rtrnList.append(output[len(output) - 1][0])
+    makeLog("LOG", "outputEditor()", "Output from the algorithm was converted successfully")
+    if getSumOutOfAlgo == True:
+        return float(output[len(output) - 1][0])
+    '''
+    Editing the numbers to the original numbers
+    '''
+    dictKeys = list(sett.dictionary.keys())
+    smallDict = sett.dictionary[list(sett.dictionary.keys())[0]] 
+    dictMem = list(smallDict.keys())
+    #Changing the X
+    for num in range(len(dictKeys)):
+        rtrnList[num][0] = dictKeys[num] + 1
+    #Changing the Y
+    for num in range(len(dictMem)):
+        rtrnList[num][1] = dictMem[num] + 1
+    return rtrnList
+
 
 #Last phase of generating the input for the algortihm -- Only used with the uneven number of members
 def groupDic(group1Listt, group2Listt):
+    if len(group1Listt) != len(group2Listt):
+        makeLog("FERR", "groupDic()", "Group1List and Group2List is not the same size")
     namesDict = {}
     storingDic = {}
     for lists11 in range(len(group1Listt)):
@@ -273,6 +322,39 @@ def groupDic(group1Listt, group2Listt):
                     namesDict.update({group1Listt[lists11] : storingDic})
                     storingDic = {}
     return namesDict
+def dictTranslator(dictt):
+    """
+    1. Arg - DictOfDicts
+    Translates the old form of dictonaries into the appropriate ListsOfLists format.
+    """
+    sett.dictionary = dictt
+    mainList = []
+    for x in list(dictt.values()):
+        mainList.append(list(x.values()))
+    #
+    for number in range(len(mainList)):
+        for number2 in range(len(mainList[number])):
+            mainList[number][number2] = 3000000 - mainList[number][number2]
+    if len(mainList) > 1:
+        pass
+    else:
+        makeLog("FERR", "dictTranslator()", f"Lenght of the translation is: {len(mainList)}")
+    if len(mainList) == len(mainList[0]):
+        makeLog("LOG", "dictTranslator()", "Dict was translated to a list successfully")
+    else:
+        makeLog("FERR","dictTranslator(dictt)","len(x) != len(y)", True)
+    return mainList
+def groupSumGetter(list1, list2):
+    """
+    1. Arg - List 1
+    2. Arg - List 2
+    len(List1) == lin(List2)
+    Gets the price from the hungarian algorithm
+    """
+    input = dictTranslator(groupDic(list1, list2))
+    matcher = km.KMMatcher(input)
+    out = matcher.solve(verbose=True)
+    return outputEditor(out,True)
 #From list1 to list2 -- List1, List2, indexNumber -- Mostly used in the uneven uneven algorithm
 def moveElements(list1, list2, listNumber1): 
     list11 = list1.copy()
@@ -282,10 +364,9 @@ def moveElements(list1, list2, listNumber1):
     list11.pop(listNumber1)
     return [list11,list22,value]
 #Used for unven groups, difference bettween members needs to be 1
-def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
+def unevenGroups1(group1List, group2List, returnDict = True):  #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
     if abs(len(group1List) - len(group2List)) != 1:
         makeLog("FERR", "unevenGroups1()", "Difference bettween the number of participants is not 1!", True)
-        return False
     if len(group1List) - len(group2List) == 1: #In this case the dominant group is g1
         dominantGroup = 0
     else:                                      #Dominant group g2
@@ -306,16 +387,18 @@ def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Retur
         bestGroup = group1List
     #Comparing one list to another, special algorithm
     for listMain in range(len(group1List)): #Generating the values for this group
-        generatedValues.append(sumAll)      #Appends all the sums to a list
         testGroup = []                      #Creating a list
         testGroup.extend(group1List)        #Resets the value
         testGroup.pop(listMain)             #Deletes one object from LIST
         sumAll = 0
+        sumAll = groupSumGetter(testGroup, group2List)
+        generatedValues.append(sumAll)      #Appends all the sums to a list
+        """
         for lists1 in range(len(group2List)):
             for lists in range(len(group2List)):
                 exe = allCategories(testGroup[lists1], group2List[lists])
                 sumAll += exe
-    generatedValues.pop(0)                        #removes the first 0 from the list
+        """
         #
     checker = 10000000
     checker_value = 0
@@ -333,14 +416,6 @@ def unevenGroups1(group1List, group2List, returnDict):  #Input -- False -- Retur
         return finalR
     return checker     
 
-def sumOfArrays(array1, array2): #Input two arrays
-    if len(array1) != len(array2): makeLog("FERR", "sumOfArrays", "Len Array1 and Len Array2 not matching", True)
-    sumAll = 0
-    for lists1 in range(len(array1)):
-        for lists in range(len(array2)):
-            exe = allCategories(array1[lists1], array2[lists])
-            sumAll += exe
-    return sumAll
 #Cahing 
 def cacheSetter(numericalCombination, value):          #The first is the number from for loops, second number is the value
     sortedCombination = "".join(sorted(str(numericalCombination)))
@@ -368,6 +443,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
     usedList = []
     saveValue = 1000000000000
     if diff == 1:                       #Case where the difference is 2, 1 member needs to be moved
+        makeLog("LOG", "unUnD1e()","Difference 2 using diff==1")
         if sett.debug == True: print("[DBG - unUnD1e] The difference is 2, using 'diff == 1'")
         with alive_bar(len(list1)) as bar:
             for mem1 in range(len(list1)):       #Making the pairs and calculating the sums
@@ -375,7 +451,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                 listSave = testList1[mem1]
                 rtrn = moveElements(testList1,testList2,mem1)
                 if cacheGetter(str(listSave) + str(mem1)) == False:                      #Not found un cache 
-                    outcome = sumOfArrays(rtrn[0], rtrn[1])
+                    outcome = groupSumGetter(rtrn[0], rtrn[1])
                     cacheSetter(str(listSave) + str(mem1), outcome)
                 if cacheGetter(str(listSave) + str(mem1)) == True:
                     outcome = cacheGetter(str(listSave) + str(mem1))
@@ -388,6 +464,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
         return [rtrn[0],rtrn[1],saveValue]
     #
     if diff == 2:                     #Case where the difference is 4, 2 members needs to be moved
+        makeLog("LOG", "unUnD1e()","Difference 4 using diff==2")
         if sett.debug == True: print("[DBG - unUnD1e] The difference is 4, using 'diff == 2'")
         #15 mins
         with alive_bar(len(list1)*len(list1)) as bar:
@@ -407,7 +484,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                     testlist1n.remove(listName[1])
                     #
                     if cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2)) == False:                      #Not found in cache 
-                        outcome = sumOfArrays(testlist1n, testlist1n)
+                        outcome = groupSumGetter(testlist1n, testlist1n)
                         cacheSetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2), outcome)
                     #
                     if cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2)) != False:
@@ -427,6 +504,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
         return [testlist1n,testlist2n,saveValue]
     #
     if diff == 3:
+        makeLog("LOG", "unUnD1e()","Difference 6 using diff==3")
         if sett.debug == True: print("[DBG - unUnD1e] The difference is 6, using 'diff == 3'")
         with alive_bar(len(list1)*len(list1)*len(list1)) as bar:
             for mem1 in range(len(list1)):
@@ -448,7 +526,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                         testlist1n.remove(listName[2])
                         #
                         if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3)) == False:
-                            outcome = sumOfArrays(testlist1n, testlist1n)
+                            outcome = groupSumGetter(testlist1n, testlist1n)
                             cacheSetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3), outcome)
                         #
                         if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3)) != False:
@@ -470,6 +548,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
         return [testlist1n,testlist2n,saveValue]
     #
     if diff == 4:
+        makeLog("LOG", "unUnD1e()","Difference 8 using diff==4")
         if sett.debug == True: print("[DBG - unUnD1e] The difference is 8, using 'diff == 4'")
         with alive_bar(len(list1)*len(list1)*len(list1)*len(list1)) as bar:
             for mem1 in range(len(list1)):
@@ -493,7 +572,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
                             testlist1n.remove(listName[2])
                             testlist1n.remove(listName[3])
                             if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4)) == False:
-                                outcome = sumOfArrays(testlist1n, testlist1n)
+                                outcome = groupSumGetter(testlist1n, testlist1n)
                                 cacheSetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4), outcome)
                             if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4)) != False:
                                 outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4))
@@ -513,6 +592,7 @@ def unUnD1e(list1, list2, diff): #list, list,  - int, int
         testlist1n.remove(name[3])
         if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
         if diff > 4:
+            makeLog("ERR", "unUnD1e()","Difference bigger than 8, not supported")
             print("Difference bigger than 8, currently not supported!")
             time.sleep(15)
             exit()
@@ -534,6 +614,7 @@ def unevenUnevenAlgo(list1,list2):
         list1 = case[0]
         list2 = case[1]
     else:                                      #ODD numbers
+        makeLog("LOG", "unevenUnevenAlgo()","Uneven difference bigger than 1")
         print("[SYS] - Which option do you want to use:")         #Checks if the input is valid
         print("[SYS] - 1. Faster algorithm but less accurate?")
         print("[SYS] - 2. Slower algorithm but more accurate?")
@@ -592,7 +673,6 @@ def evenAlgo(group1List, group2List):
             if lists == (len(group1List) - 1):
                 namesDict.update({group1List[lists1] : storingDic})
                 storingDic = {}
-    if sett.debug==True: print(namesDict)
     return namesDict                 #Returns dict
 
 #Making the groups of people, inputs two strings (Names of the groups)
@@ -601,23 +681,27 @@ def groupMaker(group1, group2):
     group2List = []
     for group in range(numberOfParticipants()):
         if lookForData("Group", group) == group1:
-            group1List.append(int(lookForData("Name ID", group) - 1))
+            group1List.append(int(lookForData(sett.questionOffsets["Name ID"], group) - 1))
         elif lookForData("Group", group) == group2:
-            group2List.append(int(lookForData("Name ID", group) - 1))
+            group2List.append(int(lookForData(sett.questionOffsets["Name ID"], group) - 1))
     #
+    makeLog("LOG", "groupMaker()", f"Group 1 size: {len(group1List)}, Group 2 size: {len(group2List)}" )
     if len(group1List) == 0 or len(group2List) == 0:
         makeLog("FERR", "groupMaker", f"One of the groups has 0 participants, G1: {len(group1List)}, G2: {len(group2List)}", True)
     if abs(len(group1List) - len(group2List)) == 1:   #Calls the function for uneven numbers with difference 1
+        makeLog("LOG", "groupMaker()", f"unevenGroups1() was called because the difference is 1" )
         return unevenGroups1(group1List,group2List,True)
     #
     elif len(group1List) == len(group2List):          #Creating the dict -- Number of participants is even
+        makeLog("LOG", "groupMaker()", f"evenAlgo() was called because the number of participants is even" )
         return evenAlgo(group1List, group2List)
     #
     elif abs(len(group1List) - len(group2List)) > 1:    #More people are uneven
+        makeLog("LOG", "groupMaker()", f"unevenUnevenAlgo() was called because {abs(len(group1List) - len(group2List))} participants are uneven")
         rtrn = unevenUnevenAlgo(group1List,group2List)  #Returns the edited lists that are even or uneven
-        if type(rtrn) is dict:                          #If it is a ready to go dictionary
+        if type(rtrn) is dict:                          #If it is ready to go dictionary
             return rtrn
-        if len(rtrn[0]) == len(rtrn[1]):                #If it is a list that needs to be converted into a dict          
+        if len(rtrn[0]) == len(rtrn[1]):                #If it is a list that needs to be converted into a dict
             return evenAlgo(rtrn[0], rtrn[1])
     else:
         makeLog("FERR", "groupMaker()", "Unknown", True)
@@ -632,20 +716,20 @@ def finalOut(outcome):
     print()
     time_convert(sett.endTime - sett.startTime)                                             #Prints out the time it took
     print()
-    print("Numbers are matching with the Name IDs!!")
+    print("Numbers are matching with the Name IDs!! \n\n")
     f = open("roommates.txt","w")
     d = datetime.now().strftime("%d/%B/%Y - %H:%M:%S")
     outputSupervisor = []
     trigger = False
     f.write(f"[{d}] \n")
-    for a in range(len(outcome)):                                                           #Prints out by rooms
-        out = outputEditor(str(outcome[a]))
-        print("Room {}: {}, {} with a pair-value {}".format(a+1, out[0], out[1], out[2]))
-        if out[0] in outputSupervisor or out[1] in outputSupervisor:
+    out = outputEditor(outcome)
+    for a in range(len(out) - 1):                                                           #Prints out by rooms
+        print("Room {}: {}, {} with a pair-value {}".format(a+1, out[a][0], out[a][1], out[a][2]))
+        f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[a][0], out[a][1], out[a][2]))
+        if out[a][0] in outputSupervisor or out[a][1] in outputSupervisor:
             trigger = True
-        outputSupervisor.append(out[0])
-        outputSupervisor.append(out[1])
-        f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[0], out[1], out[2]))
+        outputSupervisor.append(out[a][0])
+        outputSupervisor.append(out[a][1])
     if sett.missingParticipant != False:
         print("Room {}: {}, - alone".format(a+2, sett.missingParticipant+1))
         f.write("Room {}: {}, - alone \n".format(a+2, sett.missingParticipant+1))
@@ -669,41 +753,128 @@ def announceData():
     makeLog("LOG", "STARTUP", f"Number of registered participants: {numberOfParticipants()}")
     makeLog("LOG", "STARTUP", f"Number of registered questions: {len(getAllList())}")
 
-def internationalStudents():
-    while True:
-        print()
-        print("Can one room be composed of 2 international students? [y/n]")
-        a = input()
-        if a == "y" or a == "Y":
-            sett.internationalSt = True
-            makeLog("LOG", "internationalStudents()", "sett.internationalSt = True")
-            return
-        if a == "n" or a == "N": 
-            sett.internationalSt = False
-            makeLog("LOG", "internationalStudents()", "sett.internationalSt = False")
-            return
-        makeLog("ERR", "internationalStudents()", f"Invalid input! Input was {a}", True)
-def mixedHalls():
-    pass
+def announceSettings():
+    """
+    Will announce the current settings
+    No Args 
+    """
+    print("\n\n\n\n\n---SETTINGS---\n")
+    #
+    print(f"1. It is not allowed for 2 international students to be roommates: {bool(1-sett.internationalSt)} \n")
+    makeLog("LOG","announceSettings()", f"Is it allowed for 2 international students to be roommates: {sett.internationalSt}")
+    #
+    print(f"2. Already assigned halls will be taken into into account: {sett.oldStudentsHall} \n")
+    makeLog("LOG","announceSettings()", f"Already assigned halls will be taken into into account: {sett.oldStudentsHall}")
+    #
+    print(f"3. Hall preferred sex will be taken into account: {sett.mixedhalls} \n")
+    makeLog("LOG", "announceSettings()", f"Hall preferred sex will be taken into account: {sett.mixedhalls}")
+    #
+    print(f"4. 2 RAs can not be roommates: {sett.raBan} \n")
+    makeLog("LOG", "announceSettings()", f"2 RAs can not be roommates: {sett.raBan}")
+    #
+    print(f"5. Roommate bans will be taken into account: {sett.memberBans} \n")
+    makeLog("LOG", "announceSettings()", f"Roommate bans will be taken into account: {sett.memberBans}")
 
-def mixedGroups():
-    check = True
-    while check:
-        print("Should the program take into account 'Mixed' preferences? [y/n]")
-        a = input()
-        if a == "y" or a == "Y":
-            sett.mixedhalls = True
-            makeLog("LOG", "mixedGroups()", "sett.mixedhalls = True")
-            print("\n\n\n\n")
-            return
-        if a == "n" or a == "N": 
-            sett.mixedhalls = False
-            makeLog("LOG", "internationalStudents()", "sett.internationalSt = False")
-            print("\n\n\n\n")
-            return
-        makeLog("ERR", "mixedGroups()", f"Invalid input! Input was {a}", True)
-
-    pass
+def setSettings():
+    """
+    Let the user specify/check the current settings
+    No args needed
+    """
+    announceSettings()
+    cin = input("\nDo you want to change the settings [y/n] ")
+    if str(cin) == "y" or str(cin) == "Y":
+        x = True
+        while x:
+            print("\n\n\n")
+            announceSettings()
+            cin = input("Please select the question you want to edit [1,2,3,4,5] ")
+            try:
+                cin = int(cin)
+            except:
+                makeLog("ERR", "setSettings()", f"User input was invalid: {cin}")
+                print("Input is invalid! \n")
+                continue
+            if cin == 1:
+                new = input("It is not allowed for 2 international students to be roommates: [true, false] ")
+                if str(new) == "true" or str(new) == "True":
+                    new = False     #inverted
+                elif str(new) == "false" or str(new) == "False":
+                    new = True      #inverted
+                else:
+                    makeLog("ERR", "setSettings()", f"cin==1 User input was invalid: {new}")
+                    print("Input was invalid!")
+                    time.sleep(1)
+                    continue
+                sett.internationalSt = new
+                setSettings()
+                return
+            ####
+            if cin == 2:
+                new = input("Already assigned halls will be taken into into account: [true,false] ")
+                if str(new) == "true" or str(new) == "True":
+                    new = True
+                elif str(new) == "false" or str(new) == "False":
+                    new = False
+                else:
+                    makeLog("ERR", "setSettings()", f"cin==2 User input was invalid: {new}")
+                    print("Input was invalid!")
+                    time.sleep(1)
+                    continue
+                sett.oldStudentsHall = new
+                setSettings()
+                return
+            ###
+            if cin == 3:
+                new = input("Hall preferred sex will be taken into account: [true,false] ")
+                if str(new) == "true" or str(new) == "True":
+                    new = True
+                elif str(new) == "false" or str(new) == "False":
+                    new = False
+                else:
+                    makeLog("ERR", "setSettings()", f"cin==3 User input was invalid: {new}")
+                    print("Input was invalid!")
+                    time.sleep(1)
+                    continue
+                sett.mixedhalls = new
+                setSettings()
+                return
+            ###
+            if cin == 4:
+                new = input("2 RAs can not be roommates: [true,false] ")
+                if str(new) == "true" or str(new) == "True":
+                    new = True     
+                elif str(new) == "false" or str(new) == "False":
+                    new = False     
+                else:
+                    makeLog("ERR", "setSettings()", f"cin==4 User input was invalid: {new}")
+                    print("Input was invalid!")
+                    time.sleep(1)
+                    continue
+                sett.raBan = new
+                setSettings()
+                return
+            ###
+            if cin == 5:
+                new = input("Roommate bans will be taken into account: [true,false] ")
+                if str(new) == "true" or str(new) == "True":
+                    new = True
+                elif str(new) == "false" or str(new) == "False":
+                    new = False
+                else:
+                    makeLog("ERR", "setSettings()", f"cin==5 User input was invalid: {new}")
+                    print("Input was invalid!")
+                    time.sleep(1)
+                    continue
+                sett.memberBans = new
+                setSettings()
+                return
+            else:
+                makeLog("ERR", "setSettings()", f"User failed to choose the question hew wants to edit: {cin}")
+                print("Invalid input")
+                time.sleep(1)
+    else:
+        print("\n\n")
+        return True
 def runtime():
     makeLog("CLR") #Clears the LOG file
     announceData()
@@ -711,16 +882,16 @@ def runtime():
     print("Which groups should be used! eg. F3, F4")
     fg = input("Group one: ")
     sg = input("Group two: ")
+    fg = "Female - Year 1"
+    sg = "Female - Year 2"
     makeLog("LOG", "input Groups",f"Group 1: {fg}, Second Group: {sg}")
-    internationalStudents()
-    mixedGroups()
+    setSettings()
     sett.startTime = time.time()                                                                 #Start of stopwatch
-    group1 = groupMaker(fg, sg)                                                                  #Makes the groups and turns them into DICT with generated numbers
-    print(group1)
-    print(algorithm.find_matching(group1, matching_type = 'min', return_type = 'list') )
-    outcome = algorithm.find_matching(group1, matching_type = 'min', return_type = 'list')       #Algorithm
+    group1 = dictTranslator(groupMaker(fg, sg))
+    matcher = km.KMMatcher(group1)
+    outcome = matcher.solve(verbose=True)
     sett.endTime = time.time()                                                                   #End of stopwatch
-    finalOut(outcome)                                                                            #Final string editting 
+    finalOut(outcome)                                                                       #Final string editting 
     input("Press enter to exit!")
     makeLog("LOG","exit","Program has exited with code 0")
     exit(0)
