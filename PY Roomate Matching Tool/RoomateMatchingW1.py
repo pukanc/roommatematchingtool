@@ -1,30 +1,29 @@
-import json, time, re, excel2json, os
+import json, time, excel2json, os, math
 from typing import Dict
 import km_matcher as km
-from hungarian_algorithm import algorithm
-from alive_progress import alive_bar
 from datetime import datetime
 class Values:
-    version = "1.0.0"
-    debug = True                                    #Debug off == user-mode, Debug on debug
+    version = "1.0.1"
+    debug = False                                    #Debug off == user-mode, Debug on debug
     missingParticipant = False                      #Is there a missing participant
     excelName = "Test.xls"                          #Settings for debug 1
     jsonName  = "Form Responses 1.json"             #Settings for debug 2 
     questionOffsets = {"Group" : 0, "Name ID" : 1 ,"Slovak" : 2, "RA" : 3, "Ban" : 4,"Hall" : 5, "Mixed" : 6 ,"Q1" : 7, "Q2Q3" : [8,9],
-    "Q4" : 10, "Q5Q6" : [11,12], "Q7Q8": [13,14], "Q9Q10" : [15,16], "Q11Q12" : [17,18], "Q13Q14" : [19,20,21]} 
+    "Q4" : 10, "Q5Q6" : [11,12], "Q7Q8": [13,14], "Q9Q10" : [14,15,16], "Q11Q12" : [17,18], "Q13Q14" : [19,20,21]} 
     allOptionsList = []                             #Loading all the questions 
     startTime = 0                                   #Start time of the operation 
     endTime   = 0                                   #End time of the operation
     group1 = []                                     #Group 1 list
     group2 = []                                     #Group 2 list
-    cacheList = []                                  #For caching
     dictionary = {}                                 #Used in the output system
+    uneven = False                                  #Is the output from the hungarian uneven
     #
-    internationalSt = False                         #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
-    oldStudentsHall = True                          #If true "Hall" will be taken into account - If false it wont
-    mixedhalls = True                               #True - Program will take into account the mixing rules \ False - It wont -- Mixing rules "Mixed"
-    raBan = True                                    #If true two RA members in a matching will get a penalty
-    memberBans = True                               #If true then members who share the same ban number will get a penalty
+    internationalSt = False                        #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
+    oldStudentsHall = True                         #If true "Hall" will be taken into account - If false it wont
+    mixedhalls = True                              #True - Program will take into account the mixing rules \ False - It wont -- Mixing rules "Mixed"
+    raBan = True                                   #If true two RA members in a matching will get a penalty
+    memberBans = True                              #If true then members who share the same ban number will get a penalty
+    dummyMember = True                             #Dummy member -- Set true means that the dummy will get into the smaller group -- False means it will get in the bigget group 
 
 sett = Values()                                     #Creating a global object
 
@@ -56,50 +55,53 @@ def makeLog(typeOfLog = "LOG", where = "", stringToPass = "NULL", sprint = False
     file.close()
     if typeOfLog == "FERR":
         path = os.getcwd() + r"\rmLog.txt"
-        print(f"Check rmLog.txt for more information! It can be found here {path}!")
+        print(f"Fatal Error check rmLog.txt for more information! It can be found here {path}!")
         print("\n\n")
         input("Press enter to exit!")
         exit(0)
     return True
 
-                                                    #Intial input, --IF DEBUG TRUE DISABLED-- .xls, .json file input
-if sett.debug == True:
-    excel2json.convert_from_file(str(sett.excelName))
-else:
-    localCounter = 0
-    while True:
-        try:
-            localCounter += 1
-            if  localCounter == 1:                                                                     #Enter the .xls file
+def start():
+    if sett.debug == True:
+        excel2json.convert_from_file(str(sett.excelName))
+    else:
+        localCounter = 0
+        while True:
+            try:
+                localCounter += 1
+                if  localCounter == 1:                                                                     #Enter the .xls file
+                    print("What is the name of the of the file? eg. prefs_table.xls")
+                    sett.excelName = input()
+                    excel2json.convert_from_file(str(sett.excelName))
+            
+            except NameError:                                                                              #File not found, try one more time
+                makeLog("ERR", "XLS file converter","File not found!", True)
                 print("What is the name of the of the file? eg. prefs_table.xls")
                 sett.excelName = input()
                 excel2json.convert_from_file(str(sett.excelName))
         
-        except NameError:                                                                              #File not found, try one more time
-            makeLog("ERR", "XLS file converter","File not found!", True)
-            print("What is the name of the of the file? eg. prefs_table.xls")
-            sett.excelName = input()
-            excel2json.convert_from_file(str(sett.excelName))
-    
-        #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
-        print("Check your folder and pick the JSON file you want to use. eg. Form Responses.json")
-        sett.jsonName = input()
-        try:
-            json.loads(open(str(sett.jsonName)).read())
-            break
-        except FileNotFoundError:
-            makeLog("ERR", "JSON file selector", "File not found!", True)
+            #Input the name of the second JSON file -- Wait and check your folder you should see new JSON files
+            print("Check your folder and pick the JSON file you want to use. eg. Form Responses.json")
+            sett.jsonName = input()
+            try:
+                json.loads(open(str(sett.jsonName)).read())
+                break
+            except FileNotFoundError:
+                makeLog("ERR", "JSON file selector", "File not found!", True)
 
-#Converts time -- for the stopwatch
 def time_convert(sec):
-  mins = sec // 60
-  sec = sec % 60
-  hours = mins // 60
-  mins = mins % 60
-  print("Results calculated, it took {0}h:{1}m:{2}s to calculate!".format(int(hours),int(mins),round(int(sec))))
-  makeLog("LOG", "time_convert()", "Results calculated, it took {0}h:{1}m:{2}s to calculate!".format(int(hours),int(mins),round(int(sec))))
-#Handling of the questions -- All the questions are returned in a list
+    """Converts time -- for the stopwatch"""
+    mins = sec // 60
+    sec = sec % 60
+    hours = mins // 60
+    mins = mins % 60
+    print("Results calculated, it took {0}h:{1}m:{2}s to calculate!".format(int(hours),int(mins),round(int(sec))))
+    makeLog("LOG", "time_convert()", "Results calculated, it took {0}h:{1}m:{2}s to calculate!".format(int(hours),int(mins),round(int(sec))))
+
 def getAllList():
+    """
+    Handling of the questions -- All the questions are returned in a list
+    """
     res = json.loads(open(str(sett.jsonName)).read())
     list = []
     #Add a log event
@@ -108,8 +110,6 @@ def getAllList():
             list.append(key)
     return list
 
-#Loading all the quesitons
-sett.allOptionsList = getAllList()
 
 
 
@@ -126,8 +126,10 @@ def lookForData(jClass, numberWhere):
         makeLog("LOG", f"lookForData({jClass},{numberWhere})", "Data not found!")
         return False
 
-#Returns the number of the participants(int), !!!starts with a 1
 def numberOfParticipants():
+    """
+    Returns the number of the participants(int), !!!starts with a 1
+    """
     nOfparticipants = 0
     while True:
         try:
@@ -138,12 +140,17 @@ def numberOfParticipants():
     return nOfparticipants
 
 
-#Returns all the data that a participant has, !!!starts with a zero
 def dataForParticipant(number):
+    """
+    Returns all the data that a participant has, !!!starts with a zero
+    """
     jdata = json.loads(open(sett.jsonName).read())
     data = []
-    for i in range(0,len(getAllList())):
-        data.append(jdata[number][sett.allOptionsList[i]])
+    try:
+        for i in range(0,len(getAllList())):
+            data.append(jdata[number][sett.allOptionsList[i]])
+    except IndexError:
+        return False
     return data
 
 #---------------------------------------------------------------------------------------------------------
@@ -160,13 +167,9 @@ def categoryTwoThree(mainParticipant, otherparticipant):
     otherP = dataForParticipant(otherparticipant)
     mainPq5 = 6 - mainP[sett.questionOffsets["Q2Q3"][1]]
     otherPq5 = 6 - otherP[sett.questionOffsets["Q2Q3"][1]]
-    calc1 = mainP[sett.questionOffsets["Q2Q3"][0]] - otherPq5
-    if calc1 < 0:
-        calc1 = calc1 * (-1)
-    calc2 = mainPq5 - otherP[sett.questionOffsets["Q2Q3"][0]]
-    if calc2 < 0:
-        calc2 = calc2 * (-1)
-    return calc1 + calc2
+    mainPq5 = (mainP[sett.questionOffsets["Q2Q3"][0]]-1)*(otherP[sett.questionOffsets["Q2Q3"][1]]-1)
+    otherPq5 = (otherP[sett.questionOffsets["Q2Q3"][0]] - 1)*(mainP[sett.questionOffsets["Q2Q3"][1]]-1)
+    return round(math.sqrt(mainPq5) + math.sqrt(otherPq5), 2)
 
 #Q4 - Cleanliness orderliness - double, two ints needed 
 def categoryFour(mainParticipant, otherparticipant):
@@ -175,57 +178,82 @@ def categoryFour(mainParticipant, otherparticipant):
     minus = mainP[sett.questionOffsets["Q4"]] - otherP[sett.questionOffsets["Q4"]]
     return abs(minus) * 2
 
-#Q5,Q6 - Sharing of items, reversed special, two ints needed 
+#Q5,Q6 - Sharing of items, reversed special, two ints needed  ----- Not matching (2,45)  4
 def categoryFiveSix(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[sett.questionOffsets["Q5Q6"][1]]
-    otherPq5 = 6 - otherP[sett.questionOffsets["Q5Q6"][1]]
-    calc1 = mainP[sett.questionOffsets["Q5Q6"][0]] - otherPq5
-    calc2 = mainPq5 - otherP[sett.questionOffsets["Q5Q6"][0]]
-    return abs(calc1) + abs(calc2)
+    mainPq5 = (mainP[sett.questionOffsets["Q5Q6"][0]]-1)*(otherP[sett.questionOffsets["Q5Q6"][1]]-1)
+    otherPq5 = (otherP[sett.questionOffsets["Q5Q6"][0]] - 1)*(mainP[sett.questionOffsets["Q5Q6"][1]]-1)
+    return round(math.sqrt(mainPq5) + math.sqrt(otherPq5), 2)
 
-#Q7,Q8 - Quiet space, reversed special, two ints neeeded 
+#Q7,Q8 - Quiet space, reversed special, two ints neeeded    (4.90) - 2
 def categorySevenEight(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
-    mainPq5 = 6 - mainP[sett.questionOffsets["Q7Q8"][1]]
-    otherPq5 = 6 - otherP[sett.questionOffsets["Q7Q8"][1]]
-    calc1 = mainP[sett.questionOffsets["Q7Q8"][0]] - otherPq5
-    calc2 = mainPq5 - otherP[sett.questionOffsets["Q7Q8"][0]]
+    one = (mainP[sett.questionOffsets["Q7Q8"][0]]-1)*(otherP[sett.questionOffsets["Q7Q8"][1]] - 1)
+    two = (otherP[sett.questionOffsets["Q7Q8"][0]] - 1)*(mainP[sett.questionOffsets["Q7Q8"][1]] - 1)
+    return round(math.sqrt(one)+math.sqrt(two), 2)
 
-    return abs(calc1) + abs(calc2)
-
-#Q9,Q10 - Friends over, specia but not reversed, two ints are needed  
+#Q9,Q10 - Friends over, specia but not reversed, two ints are needed  (0.96) -- 1
 def categoryNineTen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
     mainPq5 = mainP[sett.questionOffsets["Q9Q10"][1]]
     otherPq5 = otherP[sett.questionOffsets["Q9Q10"][1]]
-    calc1 = mainP[sett.questionOffsets["Q9Q10"][0]] - otherPq5
-    calc2 = mainPq5 - otherP[sett.questionOffsets["Q9Q10"][0]]
-    return abs(calc1) + abs(calc2)
+    I2 = mainP[sett.questionOffsets["Q9Q10"][0]]
+    J2 = mainP[sett.questionOffsets["Q9Q10"][1]]
+    K2 = mainP[sett.questionOffsets["Q9Q10"][2]]
+    K3 = otherP[sett.questionOffsets["Q9Q10"][2]]
+    J3 = otherP[sett.questionOffsets["Q9Q10"][1]]
+    I3 = otherP[sett.questionOffsets["Q9Q10"][0]]
+    if J2 <= K3:
+    	one = 0
+    else:
+    	one = (J2-K3)*(I2-1)
+    	one = math.sqrt(one)
+    ###
+    if J2 <= K3:
+    	two = 0
+    else:
+    	two = (J2 - K3) * (I2-1)/4
+    oneTwo = (one+two)/2
+    ##
+    if J3<=K2:
+    	three = 0
+    else:
+    	three= (J3-K2)*(I3-1)
+    	three = math.sqrt(three)
+    if J3<=K2:
+    	four = 0
+    else:
+    	four = (J3-K2)*(I3-1)/4
+    threeFour =  (three + four)/2
+    return round(oneTwo + threeFour, 2)
+
 
 #Q11,Q12 - Living space, special but not reversed, two ints needed 
 def categoryElevenTwelve(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
     mainPq5 = mainP[sett.questionOffsets["Q11Q12"][1]]
-    otherPq5 = otherP [sett.questionOffsets["Q11Q12"][1]]
+    otherPq5 = otherP[sett.questionOffsets["Q11Q12"][1]]
     calc1 = mainP[sett.questionOffsets["Q11Q12"][0]] - otherPq5
     calc2 = mainPq5 - otherP[sett.questionOffsets["Q11Q12"][0]]
-    return abs(calc1) + abs(calc2)
+    ###
+    one = (abs(mainP[sett.questionOffsets["Q11Q12"][1]] - otherP[sett.questionOffsets["Q11Q12"][0]])*(mainP[sett.questionOffsets["Q11Q12"][0]] - 1))/ 4
+    two = (abs(otherP[sett.questionOffsets["Q11Q12"][1]] - mainP[sett.questionOffsets["Q11Q12"][0]])*(otherP[sett.questionOffsets["Q11Q12"][0]]-1))/  4
+    return one + two
 
 #Q13,Q14 - Sleeping, special alogorithm
 def categoryThirteenFourteen(mainParticipant, otherparticipant):
     mainP = dataForParticipant(mainParticipant)
     otherP = dataForParticipant(otherparticipant)
     #first person
-    sleepF1 = mainP[sett.questionOffsets["Q13Q14"][1]] - otherP[sett.questionOffsets["Q13Q14"][1]]
-    wakeF1 = mainP[sett.questionOffsets["Q13Q14"][2]] - otherP[sett.questionOffsets["Q13Q14"][2]]
+    sleepF1 = mainP[sett.questionOffsets["Q13Q14"][1]] - otherP[sett.questionOffsets["Q13Q14"][1]] #0
+    wakeF1 = mainP[sett.questionOffsets["Q13Q14"][2]] - otherP[sett.questionOffsets["Q13Q14"][2]]   # -1
     #second person
-    sleepF2 = otherP[sett.questionOffsets["Q13Q14"][1]] - mainP[sett.questionOffsets["Q13Q14"][1]]
-    wakeF2 = otherP[sett.questionOffsets["Q13Q14"][2]] - mainP[sett.questionOffsets["Q13Q14"][2]]
+    sleepF2 = otherP[sett.questionOffsets["Q13Q14"][1]] - mainP[sett.questionOffsets["Q13Q14"][1]]  #0
+    wakeF2 = otherP[sett.questionOffsets["Q13Q14"][2]] - mainP[sett.questionOffsets["Q13Q14"][2]]   # 1
     #Person one sleep
     if sleepF1 < 0:
         person1s = (-sleepF1 + 1)/(6-mainP[sett.questionOffsets["Q13Q14"][0]])/(5/4)
@@ -252,28 +280,38 @@ def categoryThirteenFourteen(mainParticipant, otherparticipant):
 
 #Execution two ints -- represeting members (Member ID - 1)
 def allCategories(mem1, mem2):
+    """
+    Returns a sum
+    1. Arg - Name ID - 1 of the participant
+    2. Arg - Name ID - 1 of the participant
+    """
     together = categoryOne(mem1,mem2) + categoryTwoThree(mem1,mem2) + categoryFour(mem1,mem2) + categoryFiveSix(mem1,mem2) + categorySevenEight(mem1,mem2) +categoryNineTen(mem1,mem2) + categoryElevenTwelve(mem1,mem2) + categoryThirteenFourteen(mem1,mem2)
     firstp =  dataForParticipant(mem1)
     secondp = dataForParticipant(mem2)
     #RA matching
-    if sett.raBan == True and firstp[sett.questionOffsets["RA"]] != "" and firstp[sett.questionOffsets["RA"]] == secondp[sett.questionOffsets["RA"]] and firstp[sett.questionOffsets["RA"]] == "Y":
-        together += 10000
-        #Penalty for two ARs
+    if sett.raBan == True:  
+        if firstp[sett.questionOffsets["RA"]] != "" and firstp[sett.questionOffsets["RA"]] == secondp[sett.questionOffsets["RA"]] and firstp[sett.questionOffsets["RA"]] == "Y":
+            together += 10000
+            #Penalty for two ARs
     #Member bans
-    if sett.memberBans == True and firstp[sett.questionOffsets["Ban"]] != "" and firstp[sett.questionOffsets["Ban"]] == secondp[sett.questionOffsets["Ban"]]:
-        together += 100000
+    if sett.memberBans == True: 
+            if firstp[sett.questionOffsets["Ban"]] != "" and firstp[sett.questionOffsets["Ban"]] == secondp[sett.questionOffsets["Ban"]]:
+                together = 100000
     #International students
     if sett.internationalSt == False and firstp[sett.questionOffsets["Slovak"]] == "N" and secondp[sett.questionOffsets["Slovak"]] == "N":
         together += 10000
     #MixedHalls 
-    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "Y" and secondp[sett.questionOffsets["Mixed"]] == "NN" :
-        together += 10000
-    if sett.mixedhalls == True and firstp[sett.questionOffsets["Mixed"]] == "NN" and secondp[sett.questionOffsets["Mixed"]] == "Y":
-        together += 100000
+    if sett.mixedhalls == True:
+        if firstp[sett.questionOffsets["Mixed"]] == "Y" and secondp[sett.questionOffsets["Mixed"]] == "NN" :
+            together += 10000
+    if sett.mixedhalls == True: 
+        if firstp[sett.questionOffsets["Mixed"]] == "NN" and secondp[sett.questionOffsets["Mixed"]] == "Y":
+            together = 100000
     #Old students hall
-    if sett.oldStudentsHall == True and firstp[sett.questionOffsets["Hall"]] != "" and secondp[sett.questionOffsets["Hall"]] != "" and firstp[sett.questionOffsets["Hall"]] != secondp[sett.questionOffsets["Hall"]]:
-        together += 100000
-    return together*together
+    if sett.oldStudentsHall == True:
+            if firstp[sett.questionOffsets["Hall"]] != "" and secondp[sett.questionOffsets["Hall"]] != "" and firstp[sett.questionOffsets["Hall"]] != secondp[sett.questionOffsets["Hall"]]:
+                together = 100000
+    return together**2
 
 
 def outputEditor(output, getSumOutOfAlgo = False):
@@ -300,22 +338,78 @@ def outputEditor(output, getSumOutOfAlgo = False):
     dictMem = list(smallDict.keys())
     #Changing the X
     for num in range(len(dictKeys)):
-        rtrnList[num][0] = dictKeys[num] + 1
+        number = rtrnList[num][0]
+        rtrnList[num][0] = dictKeys[number] + 1
     #Changing the Y
     for num in range(len(dictMem)):
-        rtrnList[num][1] = dictMem[num] + 1
-    return rtrnList
+        number = rtrnList[num][1]
+        rtrnList[num][1] = dictMem[number] + 1
+    #0 member
+    for mem in range(len(rtrnList)):
+            if rtrnList[mem][0] == 77778:
+                rtrnList[mem][0] = rtrnList[mem][1]
+                rtrnList[mem][1] = "- alone"
+            if rtrnList[mem][1] == 77778:
+                rtrnList[mem][1] = "- alone"
+    #Creating two lists -- Because of unevenUneven
+    oldRtrnList = rtrnList.copy()
+    rtnrList2 = []
+    if sett.uneven == True:
+        oldRtrnList = rtrnList.copy()
+        cacheList = []
+        rtnrList2 = []
+        for members in range(len(oldRtrnList) - 1):   #Accesing every part of rtnList
+            if rtrnList[members][0] in cacheList or rtrnList[members][1] in cacheList:
+                rtnrList2.append(rtrnList[members])
+                oldRtrnList.remove(rtrnList[members])
+                continue
+            cacheList.append(rtrnList[members][0])
+            cacheList.append(rtrnList[members][1])
+    return [oldRtrnList, rtnrList2]
 
-
-#Last phase of generating the input for the algortihm -- Only used with the uneven number of members
-def groupDic(group1Listt, group2Listt):
-    if len(group1Listt) != len(group2Listt):
+def groupDicUN(group1Listt, group2Listt, dummyMember = 77777):
+    """
+    Specifically made for the new unevenalgorithm because it has some special functionality!
+    1. Arg - list 1
+    2. Arg - list 2
+    3. Arg - DummyMember -- Native(False) -- But the dummy member should be passed
+    """
+    #Which group is dominant(bigger)?
+    g1 = group1Listt.copy()
+    g2 = group2Listt.copy()
+    newList = []
+    newList.extend(group1Listt)
+    newList.extend(group2Listt)
+    group1Listt = newList
+    group2Listt = newList
+    if len(newList) != len(newList):
         makeLog("FERR", "groupDic()", "Group1List and Group2List is not the same size")
     namesDict = {}
     storingDic = {}
-    for lists11 in range(len(group1Listt)):
-            for listss in range(len(group2Listt)):
-                exe = allCategories(group1Listt[lists11], group2Listt[listss])
+    for lists11 in range(len(group1Listt)):            #First for loop
+            for listss in range(len(group2Listt)):     #Second for loop
+                if group1Listt[lists11] == group2Listt[listss]:
+                    exe = 100000
+                #Dummy member
+                elif dummyMember == group1Listt[lists11] or dummyMember == group2Listt[listss]:
+                    if sett.dummyMember == True:
+                        if dummyMember != group1Listt[lists11] and group1Listt[lists11] in g2:
+                            exe = 100000
+                        elif dummyMember != group1Listt[listss] and group1Listt[listss] in g2:
+                            exe = 100000
+                        else:
+                            exe = 0
+                    elif dummyMember != group1Listt[lists11] and group1Listt[lists11] in g1:
+                        exe = 100000
+                    elif dummyMember != group1Listt[listss] and group1Listt[listss] in g1:
+                        exe = 100000
+                    else:
+                        exe = 0
+                elif group1Listt[lists11] in g2 and group2Listt[listss] in g2:
+                    exe = 100000
+                else:
+                    exe = allCategories(group1Listt[lists11], group2Listt[listss])
+                #
                 storingDic.update({group2Listt[listss] : int(exe)})
                 if listss == (len(group1Listt) - 1):
                     namesDict.update({group1Listt[lists11] : storingDic})
@@ -334,7 +428,8 @@ def dictTranslator(dictt):
     #
     for number in range(len(mainList)):
         for number2 in range(len(mainList[number])):
-            mainList[number][number2] = 3000000 - mainList[number][number2]
+            mainList[number][number2] = 3000 - mainList[number][number2]
+            pass
     if len(mainList) > 1:
         pass
     else:
@@ -344,259 +439,33 @@ def dictTranslator(dictt):
     else:
         makeLog("FERR","dictTranslator(dictt)","len(x) != len(y)", True)
     return mainList
-def groupSumGetter(list1, list2):
+def unevenAlgorithm(list1, list2):
     """
-    1. Arg - List 1
+    Algorithm for solving uneven lists
+    1. Arg - List 1 
     2. Arg - List 2
-    len(List1) == lin(List2)
-    Gets the price from the hungarian algorithm
     """
-    input = dictTranslator(groupDic(list1, list2))
-    matcher = km.KMMatcher(input)
-    out = matcher.solve(verbose=True)
-    return outputEditor(out,True)
-#From list1 to list2 -- List1, List2, indexNumber -- Mostly used in the uneven uneven algorithm
-def moveElements(list1, list2, listNumber1): 
-    list11 = list1.copy()
-    list22 = list2.copy()
-    value = list11[listNumber1]
-    list22.append(list11[listNumber1])
-    list11.pop(listNumber1)
-    return [list11,list22,value]
-#Used for unven groups, difference bettween members needs to be 1
-def unevenGroups1(group1List, group2List, returnDict = True):  #Input -- False -- Returns the smallest sum -- True -- returns the dictionary
-    if abs(len(group1List) - len(group2List)) != 1:
-        makeLog("FERR", "unevenGroups1()", "Difference bettween the number of participants is not 1!", True)
-    if len(group1List) - len(group2List) == 1: #In this case the dominant group is g1
-        dominantGroup = 0
-    else:                                      #Dominant group g2
-        dominantGroup = 1
-    #
-    generatedValues = []
-    sumAll = 0                 #Used in the loop
-    testGroup = group1List     #Loadin buffer values
-    bestGroup = group1List     #Loading bvuffer values
-    #
-    if dominantGroup == 1:                 #In case that the dominant group is g2 
-        #Switching the groups
-        buffer = group1List                # - = g1
-        group1List = group2List            #g1 = g2
-        group2List = buffer                #g2 = g1
-        #Loading the new group 1
-        testGroup = group1List
-        bestGroup = group1List
-    #Comparing one list to another, special algorithm
-    for listMain in range(len(group1List)): #Generating the values for this group
-        testGroup = []                      #Creating a list
-        testGroup.extend(group1List)        #Resets the value
-        testGroup.pop(listMain)             #Deletes one object from LIST
-        sumAll = 0
-        sumAll = groupSumGetter(testGroup, group2List)
-        generatedValues.append(sumAll)      #Appends all the sums to a list
-        """
-        for lists1 in range(len(group2List)):
-            for lists in range(len(group2List)):
-                exe = allCategories(testGroup[lists1], group2List[lists])
-                sumAll += exe
-        """
-        #
-    checker = 10000000
-    checker_value = 0
-        #
-    for check in range(len(generatedValues)):      #Searches for the smallest sum in the whole LIST
-        if checker > generatedValues[check]:       #If a sum is smaller than checker then it gets into checker
-            checker = generatedValues[check]
-            checker_value = check
-        #
-    if returnDict == True:                                  #If we want the dict returned 
-        sett.missingParticipant = bestGroup[checker_value]  #Saves the User ID to the class
-        bestGroup.pop(checker_value)                        #Removes the member
-        finalR = groupDic(bestGroup, group2List)            #Creates a Dict
-        if sett.debug == True: print(finalR)
-        return finalR
-    return checker     
-
-#Cahing 
-def cacheSetter(numericalCombination, value):          #The first is the number from for loops, second number is the value
-    sortedCombination = "".join(sorted(str(numericalCombination)))
-    if sortedCombination in sett.cacheList:
-        return False
-    sett.cacheList.append(sortedCombination)
-    sett.cacheList.append(value)
-    return True
-def cacheGetter(numericalCombination):                                     #The first is the number from for loops
-    sortedCombination = "".join(sorted(str(numericalCombination)))
-    if sortedCombination in sett.cacheList:
-        index = sett.cacheList.index(sortedCombination)
-        return sett.cacheList[index + 1]                                    #Returns the value
-    return False
-
-#Cahing 
-                                       #In case that we only want the smallest sum returned
-def unUnD1e(list1, list2, diff): #list, list,  - int, int 
-    #
-    testList1 = list1.copy()  #Resaving values
-    testList2 = list2.copy()  #Resaving values
-    testlist1n = list1.copy()
-    testlist2n = list2.copy()
-    #
-    usedList = []
-    saveValue = 1000000000000
-    if diff == 1:                       #Case where the difference is 2, 1 member needs to be moved
-        makeLog("LOG", "unUnD1e()","Difference 2 using diff==1")
-        if sett.debug == True: print("[DBG - unUnD1e] The difference is 2, using 'diff == 1'")
-        with alive_bar(len(list1)) as bar:
-            for mem1 in range(len(list1)):       #Making the pairs and calculating the sums
-                bar()
-                listSave = testList1[mem1]
-                rtrn = moveElements(testList1,testList2,mem1)
-                if cacheGetter(str(listSave) + str(mem1)) == False:                      #Not found un cache 
-                    outcome = groupSumGetter(rtrn[0], rtrn[1])
-                    cacheSetter(str(listSave) + str(mem1), outcome)
-                if cacheGetter(str(listSave) + str(mem1)) == True:
-                    outcome = cacheGetter(str(listSave) + str(mem1))
-                if outcome < saveValue:          #Saving the best sum and data about it 
-                    saveValue = outcome
-                    itNubmer = mem1
-        #Now editing the output
-        rtrn = moveElements(testList1,testList2,itNubmer)
-        if sett.debug == True: print("[DBG - unUnD1e] Difference 2!")
-        return [rtrn[0],rtrn[1],saveValue]
-    #
-    if diff == 2:                     #Case where the difference is 4, 2 members needs to be moved
-        makeLog("LOG", "unUnD1e()","Difference 4 using diff==2")
-        if sett.debug == True: print("[DBG - unUnD1e] The difference is 4, using 'diff == 2'")
-        #15 mins
-        with alive_bar(len(list1)*len(list1)) as bar:
-            for mem1 in range(len(list1)):
-                for mem2 in range(len(list1)):
-                    bar()
-                    if mem1 == mem2:      #Checks if the numbers are equal
-                        continue
-                    if sorted(str(mem1) + str(mem2)) in usedList:                                       #Optimization
-                        continue
-                    usedList.append(sorted(str(mem1) + str(mem2)))
-                    listNo = [mem1,mem2]
-                    listName = [testlist1n[mem1], testlist1n[mem2]]
-                    testlist2n.append(testlist1n[mem1])
-                    testlist2n.append(testlist1n[mem2])
-                    testlist1n.remove(listName[0])
-                    testlist1n.remove(listName[1])
-                    #
-                    if cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2)) == False:                      #Not found in cache 
-                        outcome = groupSumGetter(testlist1n, testlist1n)
-                        cacheSetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2), outcome)
-                    #
-                    if cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2)) != False:
-                        outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(mem1) + str(mem2))                     #Found in cache
-                    #
-                    testlist1n = list1.copy()
-                    testlist2n = list2.copy()
-                    if outcome < saveValue:          #Saving the best sum and data about it
-                        saveValue = outcome
-                        itNubmer = listNo
-                        name = listName
-        testlist2n.append(testlist1n[itNubmer[0]])
-        testlist2n.append(testlist1n[itNubmer[1]])
-        testlist1n.remove(name[0])
-        testlist1n.remove(name[1])
-        if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
-        return [testlist1n,testlist2n,saveValue]
-    #
-    if diff == 3:
-        makeLog("LOG", "unUnD1e()","Difference 6 using diff==3")
-        if sett.debug == True: print("[DBG - unUnD1e] The difference is 6, using 'diff == 3'")
-        with alive_bar(len(list1)*len(list1)*len(list1)) as bar:
-            for mem1 in range(len(list1)):
-                for mem2 in range(len(list1)):
-                    for mem3 in range(len(list1)):
-                        bar()
-                        if mem1 in [mem2,mem3] or mem2 in [mem1,mem3] or mem3 in [mem1,mem2] :     #Optimization
-                            continue
-                        if sorted(str(mem1) + str(mem2) + str(mem3)) in usedList:                                       #Optimization
-                            continue
-                        usedList.append(sorted(str(mem1) + str(mem2) + str(mem3)))
-                        listNo = [mem1,mem2,mem3]
-                        listName = [testlist1n[mem1], testlist1n[mem2], testlist1n[mem3]]
-                        testlist2n.append(testlist1n[mem1])
-                        testlist2n.append(testlist1n[mem2])
-                        testlist2n.append(testlist1n[mem3])
-                        testlist1n.remove(listName[0])
-                        testlist1n.remove(listName[1])
-                        testlist1n.remove(listName[2])
-                        #
-                        if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3)) == False:
-                            outcome = groupSumGetter(testlist1n, testlist1n)
-                            cacheSetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3), outcome)
-                        #
-                        if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3)) != False:
-                            outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(mem1) + str(mem2) + str(mem3))
-                        #
-                        testlist1n = list1.copy()
-                        testlist2n = list2.copy()
-                        if outcome < saveValue:          #Saving the best sum and data about it 
-                            saveValue = outcome
-                            itNubmer = listNo
-                            name = listName
-        testlist2n.append(testlist1n[itNubmer[0]])
-        testlist2n.append(testlist1n[itNubmer[1]])
-        testlist2n.append(testlist1n[itNubmer[2]])
-        testlist1n.remove(name[0])
-        testlist1n.remove(name[1])
-        testlist1n.remove(name[2])
-        if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
-        return [testlist1n,testlist2n,saveValue]
-    #
-    if diff == 4:
-        makeLog("LOG", "unUnD1e()","Difference 8 using diff==4")
-        if sett.debug == True: print("[DBG - unUnD1e] The difference is 8, using 'diff == 4'")
-        with alive_bar(len(list1)*len(list1)*len(list1)*len(list1)) as bar:
-            for mem1 in range(len(list1)):
-                for mem2 in range(len(list1)):
-                    for mem3 in range(len(list1)):
-                        for mem4 in range(len(list1)):
-                            bar()
-                            if mem1 in [mem2,mem3,mem4] or mem2 in [mem1,mem3,mem4] or mem3 in [mem1,mem2,mem4] or mem4 in [mem1,mem2,mem3]: #Optimization
-                                continue
-                            if sorted((str(mem1) + str(mem2) + str(mem3) + str(mem4))) in usedList:                                       #Optimization
-                                continue
-                            usedList.append(sorted(str((str(mem1) + str(mem2) + str(mem3) + str(mem4)))))               #Optimization
-                            listNo = [mem1,mem2,mem3,mem4]
-                            listName = [testlist1n[mem1], testlist1n[mem2], testlist1n[mem3], testlist1n[mem4]]
-                            testlist2n.append(testlist1n[mem1])
-                            testlist2n.append(testlist1n[mem2])
-                            testlist2n.append(testlist1n[mem3])
-                            testlist2n.append(testlist1n[mem4])
-                            testlist1n.remove(listName[0])
-                            testlist1n.remove(listName[1])
-                            testlist1n.remove(listName[2])
-                            testlist1n.remove(listName[3])
-                            if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4)) == False:
-                                outcome = groupSumGetter(testlist1n, testlist1n)
-                                cacheSetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4), outcome)
-                            if cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4)) != False:
-                                outcome = cacheGetter(str(listName[0]) + str(listName[1]) + str(listName[2]) + str(listName[3]) + str(mem1) + str(mem2) + str(mem3) + str(mem4))
-                            testlist1n = list1.copy()
-                            testlist2n = list2.copy()
-                            if outcome < saveValue:          #Saving the best sum and data about it 
-                                saveValue = outcome
-                                itNubmer = listNo
-                                name = listName
-        testlist2n.append(testlist1n[itNubmer[0]])
-        testlist2n.append(testlist1n[itNubmer[1]])
-        testlist2n.append(testlist1n[itNubmer[2]])
-        testlist2n.append(testlist1n[itNubmer[3]])
-        testlist1n.remove(name[0])
-        testlist1n.remove(name[1])
-        testlist1n.remove(name[2])
-        testlist1n.remove(name[3])
-        if sett.debug == True: print("[DBG - unUnD1e] The lowest sum was {}".format(saveValue))
-        if diff > 4:
-            makeLog("ERR", "unUnD1e()","Difference bigger than 8, not supported")
-            print("Difference bigger than 8, currently not supported!")
-            time.sleep(15)
-            exit()
-        return [testlist1n,testlist2n,saveValue]
+    makeLog("LOG", "unevenAlgorithm()", "Using unevenAlgorithm")
+    if (len(list1) + len(list2)) % 2 == 0:
+        even = True
+        makeLog("LOG", "unevenAlgorithm()", f"Lists are even! Even: {even}")
+    else:
+        even = False
+        makeLog("LOG", "unevenAlgorithm()", f"Lists are odd! Even: {even}")
+    copy_list1 = list1.copy()
+    copy_list2 = list2.copy()
+    newList = []
+    #newList now is the list of all lists
+    if even == True: 
+        rtn = groupDicUN(copy_list1,copy_list2, False)
+    if even == False:
+        if sett.dummyMember == True:
+            copy_list2.append(77777) #dummy member
+        else:
+            copy_list1.append(77777)
+        rtn = groupDicUN(copy_list1,copy_list2, 77777)
+    makeLog("LOG", "unevenAlgorithm()", "Dict was returned")
+    return rtn
 #Algorithm for groups where the difference is bigger than 1
 def unevenUnevenAlgo(list1,list2):
     if (len(list1) - len(list2)) > 0:          #Dominant group1(List1)
@@ -607,68 +476,21 @@ def unevenUnevenAlgo(list1,list2):
         buffer = list1
         list1 = list2
         list2 = buffer
+    dictOut = unevenAlgorithm(list1,list2)
+    return dictOut
 
-    if difference % 2 == 0:                    #1st case -- difference mod 2 is 0
-        difference = difference / 2            #1/2 of the dif
-        case = unUnD1e(list1,list2,difference)
-        list1 = case[0]
-        list2 = case[1]
-    else:                                      #ODD numbers
-        makeLog("LOG", "unevenUnevenAlgo()","Uneven difference bigger than 1")
-        print("[SYS] - Which option do you want to use:")         #Checks if the input is valid
-        print("[SYS] - 1. Faster algorithm but less accurate?")
-        print("[SYS] - 2. Slower algorithm but more accurate?")
-        while True:
-            uInput = input("Your input(1,2): ")
-            uInput = int(uInput)
-            if uInput == 1 or uInput == 2:
-                break
-            print("[ERROR] Invalid input! Only options are 1 or 2! \n\n")
-            makeLog("LOG", "unevenUnevenAlgo - Algo selection", "Bad user input!")
-        #
-        makeLog("LOG", "Faster/Slower algorithm", f"Input: {uInput}")
-        print()
-        print()
-        if uInput == 2:
-            saveValue = 10000000
-            if sett.debug == True: print("[DBG - unUnD1e] Continuing with the slower algortihm!")
-            print("[SYS] - This process will be repeated a few times!")
-            for dif in range(len(list1)):
-                clist1 = list1.copy()
-                clist2 = list2.copy()
-                missMem = clist1[dif]
-                clist1.pop(dif)
-                case = unUnD1e(clist1,clist2,difference-1)
-                if case[2] < saveValue:
-                    saveValue = case[2]
-                    bestClist1 = case[0]
-                    bestClist2 = case[1]
-                    cmissedMem =  missMem
-            bestClist1.append(cmissedMem)
-            return unevenGroups1(bestClist1,bestClist2, True)
-        if uInput == 1:
-            if sett.debug == True: print("[DBG - unUnD1e] Continuing with the faster algortihm!")
-            clist1 = list1.copy()
-            clist2 = list2.copy()
-            buffer = clist1[0]
-            clist1.pop(0)
-            case = unUnD1e(clist1,clist2,difference-1)
-            clist1 = case[0]
-            clist1.append(buffer)
-            clist2 = case[1]
-            return unevenGroups1(clist1,clist2, True)
-    if sett.debug == True: 
-        print()
-        print("[DEBUG - unevenUnevenAlgo] List 1: {} len({}), List 2: {} len({})".format(list1,len(list1),list2,len(list2)))
-        print()
-    return [list1,list2]
-#Plain dict creaton for the even algorithm
-def evenAlgo(group1List, group2List): 
+def evenAlgo(group1List, group2List, dummyMember = False): 
     namesDict = {}
     storingDic = {}
     for lists1 in range(len(group1List)):
         for lists in range(len(group1List)):
-            exe = allCategories(group1List[lists1], group2List[lists])
+            if dummyMember == True:
+                if 77777 == group1List[lists1] or 77777 == group2List[lists]:
+                    exe = 0
+                else:
+                    exe = allCategories(group1List[lists1], group2List[lists])
+            else:
+                exe = allCategories(group1List[lists1], group2List[lists])
             storingDic.update({group2List[lists] : int(exe)})
             if lists == (len(group1List) - 1):
                 namesDict.update({group1List[lists1] : storingDic})
@@ -687,61 +509,91 @@ def groupMaker(group1, group2):
     #
     makeLog("LOG", "groupMaker()", f"Group 1 size: {len(group1List)}, Group 2 size: {len(group2List)}" )
     if len(group1List) == 0 or len(group2List) == 0:
-        makeLog("FERR", "groupMaker", f"One of the groups has 0 participants, G1: {len(group1List)}, G2: {len(group2List)}", True)
-    if abs(len(group1List) - len(group2List)) == 1:   #Calls the function for uneven numbers with difference 1
-        makeLog("LOG", "groupMaker()", f"unevenGroups1() was called because the difference is 1" )
-        return unevenGroups1(group1List,group2List,True)
+        makeLog("FERR", "groupMaker", f"Size of one or both groups is 0", True)
     #
     elif len(group1List) == len(group2List):          #Creating the dict -- Number of participants is even
-        makeLog("LOG", "groupMaker()", f"evenAlgo() was called because the number of participants is even" )
+        makeLog("LOG", "groupMaker()", f"evenAlgo() was called because the number of participants is even")
+        sett.uneven = False
         return evenAlgo(group1List, group2List)
+    #uneven 1
+    elif abs(len(group1List) - len(group2List)) == 1:
+        makeLog("LOG", "groupMaker()", f"evenAlgo() was called because the number of participants is bigger than one, dummy member attached")
+        if len(group1List) < len(group2List):
+            group1List.append(77777)
+        else:
+            group2List.append(77777)
+        return evenAlgo(group1List, group2List, True)
     #
-    elif abs(len(group1List) - len(group2List)) > 1:    #More people are uneven
-        makeLog("LOG", "groupMaker()", f"unevenUnevenAlgo() was called because {abs(len(group1List) - len(group2List))} participants are uneven")
-        rtrn = unevenUnevenAlgo(group1List,group2List)  #Returns the edited lists that are even or uneven
-        if type(rtrn) is dict:                          #If it is ready to go dictionary
-            return rtrn
-        if len(rtrn[0]) == len(rtrn[1]):                #If it is a list that needs to be converted into a dict
-            return evenAlgo(rtrn[0], rtrn[1])
     else:
-        makeLog("FERR", "groupMaker()", "Unknown", True)
+        makeLog("LOG", "groupMaker()", f"unevenUnevenAlgo() was called because the number of participants is not even: {abs(len(group1List) - len(group2List))}")
+        sett.uneven = True
+        rtrn = unevenUnevenAlgo(group1List,group2List)
+        if type(rtrn) is dict:
+            return rtrn
 
-    
 #Final output system, edits the output and puts it into groups, input should be the output from the algorithm
 def finalOut(outcome):
-    if sett.debug == True: 
-        print()
-        print("[DEBUG - finalOut] The output of the algorithm is: {}".format(outcome))
-        print()
     print()
     time_convert(sett.endTime - sett.startTime)                                             #Prints out the time it took
     print()
     print("Numbers are matching with the Name IDs!! \n\n")
-    f = open("roommates.txt","w")
+    try:
+        f = open("roommates.txt","w")
+    except PermissionError:
+        makeLog("FERR", "finalOut()", "PermissionError - Program can not acces the roommates.txt. Try to turn off your txt editor")
+    try:
+        s = open("roommates.csv", "w")
+    except PermissionError:
+        makeLog("FERR", "finalOut()", "PermissionError - Program can not acces the roommates.csv file. Try to turn off Excel...")
+    s.write('"Room number" "Member 1" "Member 2" "Weight" "Total Weight"\n')
     d = datetime.now().strftime("%d/%B/%Y - %H:%M:%S")
-    outputSupervisor = []
-    trigger = False
     f.write(f"[{d}] \n")
     out = outputEditor(outcome)
-    for a in range(len(out) - 1):                                                           #Prints out by rooms
-        print("Room {}: {}, {} with a pair-value {}".format(a+1, out[a][0], out[a][1], out[a][2]))
-        f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[a][0], out[a][1], out[a][2]))
-        if out[a][0] in outputSupervisor or out[a][1] in outputSupervisor:
-            trigger = True
-        outputSupervisor.append(out[a][0])
-        outputSupervisor.append(out[a][1])
-    if sett.missingParticipant != False:
-        print("Room {}: {}, - alone".format(a+2, sett.missingParticipant+1))
-        f.write("Room {}: {}, - alone \n".format(a+2, sett.missingParticipant+1))
-        if sett.missingParticipant+1 in outputSupervisor:
-            trigger = True
-    print()
+    price = 0
+    price1 = 0
+    print("--- Matching 1 ---")
+    f.write("--- Matching 1 ---\n")
+    for a in range(len(out[0]) - 1):#Prints out by rooms -- -1 because the value is attached
+        price += abs(out[0][a][2]-3000)
+        if out[0][a][1] == "- alone":
+            print("Room {}: {} - alone".format(a+1, out[0][a][0], out[0][a][1]))
+            f.write("Room {}: {} -alone \n".format(a+1, out[0][a][0], out[0][a][1]))
+            s.write(f'{a+1} {out[0][a][0]} {"alone"} {""}\n')
+            continue
+        s.write(f'{a+1} {out[0][a][0]} {out[0][a][1]} {abs(out[0][a][2]-3000)}\n')
+        print("Room {}: {}, {} with a pair-value {}".format(a+1, out[0][a][0], out[0][a][1], abs(out[0][a][2]-3000)))
+        f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[0][a][0], out[0][a][1], abs(out[0][a][2]-3000)))
+    makeLog("LOG", "finalOut()","Matching 1 ... OK")
+    ###########################
+    #Second out
+    if len(out[1]) > 0:
+        print("\n\n--- Matching 2 ---")
+        f.write("\n--- Matching 2 ---\n")
+        s.write(f'{""} {""} {""} {""}\n')
+        for a in range(len(out[1])):#Prints out by rooms
+            price1 += abs(out[1][a][2]-3000)
+            if out[1][a][1] == "- alone":
+                print("Room {}: {} - alone".format(a+1, out[1][a][0], out[1][a][1]))
+                f.write("Room {}: {} - alone\n".format(a+1, out[1][a][0], out[1][a][1]))
+                s.write(f'{a+1} {out[1][a][0]} {"alone"} {""}\n')
+                continue
+            s.write(f'{a+1} {out[1][a][0]} {out[1][a][1]} {abs(out[1][a][2]-3000)}\n')
+            print("Room {}: {}, {} with a pair-value {}".format(a+1, out[1][a][0], out[1][a][1], abs(out[1][a][2]-3000)))
+            f.write("Room {}: {}, {} with a pair-value {} \n".format(a+1, out[1][a][0], out[1][a][1], abs(out[1][a][2]-3000)))
+        makeLog("LOG", "finalOut()","Matching 2 ... OK")
+    makeLog("LOG", "finalOut()",f"The sum is: Price 1: {price} Price 2: {price1}")
+    f.write(f"\nThe total sum is: {price + price1}")
+    print(f"\nThe sum is: Matching 1: {price} Matching 2: {price1}")
+    s.write(f'"" "" "" "" {price + price1}')
+    #
     path = os.getcwd() + r"\roommates.txt"
-    makeLog("LOG", "finalOut", f"File roommates.txt was created! It can be found here: {path}", True)
+    path1 = os.getcwd() + r"\roommates.csv"
+    print(f"\nFile roommates.csv was created! It can be found here: {path1}")
+    print(f"File roommates.txt was created! It can be found here: {path}\n")
+    makeLog("LOG", "finalOut", f"File roommates.txt was created! It can be found here: {path}", False)
+    makeLog("LOG", "finalOut", f"File roommates.csv was created! It can be found here: {path1}")
     f.close()
-    if trigger:
-        makeLog("FERR", "Output", "One participant detected in multiple rooms", True)
-
+    s.close()
 #Prints out some basic data
 
 def announceData():
@@ -774,6 +626,9 @@ def announceSettings():
     #
     print(f"5. Roommate bans will be taken into account: {sett.memberBans} \n")
     makeLog("LOG", "announceSettings()", f"Roommate bans will be taken into account: {sett.memberBans}")
+    #
+    print(f"6. Dummy roommate matched to bigger group: {sett.dummyMember} \n")
+    makeLog("LOG", "announceSettings()", f"Dummy roommate matched to bigger group: {sett.dummyMember}")
 
 def setSettings():
     """
@@ -787,7 +642,7 @@ def setSettings():
         while x:
             print("\n\n\n")
             announceSettings()
-            cin = input("Please select the question you want to edit [1,2,3,4,5] ")
+            cin = input("Please select the question you want to edit [1,2,3,4,5,6] ")
             try:
                 cin = int(cin)
             except:
@@ -868,22 +723,40 @@ def setSettings():
                 sett.memberBans = new
                 setSettings()
                 return
+            if cin == 6:
+                new = input("Dummy roommate matched to bigger group: [true,false] ")
+                if str(new) == "true" or str(new) == "True":
+                    new = True
+                elif str(new) == "false" or str(new) == "False":
+                    new = False
+                else:
+                    makeLog("ERR", "setSettings()", f"cin==5 User input was invalid: {new}")
+                    print("Input was invalid!")
+                    time.sleep(1)
+                    continue
+                sett.dummyMember = new
+                setSettings()
+                return
             else:
-                makeLog("ERR", "setSettings()", f"User failed to choose the question hew wants to edit: {cin}")
+                makeLog("ERR", "setSettings()", f"User failed to choose the question he/she wants to edit: {cin}")
                 print("Invalid input")
                 time.sleep(1)
     else:
         print("\n\n")
         return True
 def runtime():
+    """
+    Main function
+    """
     makeLog("CLR") #Clears the LOG file
-    announceData()
     #Input group
+    start()
+    sett.allOptionsList = getAllList()
+    announceData()
+    print("\n\n")
     print("Which groups should be used! eg. F3, F4")
     fg = input("Group one: ")
     sg = input("Group two: ")
-    fg = "Female - Year 1"
-    sg = "Female - Year 2"
     makeLog("LOG", "input Groups",f"Group 1: {fg}, Second Group: {sg}")
     setSettings()
     sett.startTime = time.time()                                                                 #Start of stopwatch
@@ -895,5 +768,4 @@ def runtime():
     input("Press enter to exit!")
     makeLog("LOG","exit","Program has exited with code 0")
     exit(0)
-
 runtime()
