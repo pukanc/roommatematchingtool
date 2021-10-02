@@ -3,6 +3,7 @@ import huAlgo as km
 import blossomAlgo as blossom
 from datetime import datetime
 
+
 class Values:
     version = "1.0.2"
     debug = False                               #Debug off == user-mode, Debug on debug
@@ -762,8 +763,8 @@ def fileLoader():
         makeLog("LOG","fileLoader()", "Matrix loaded, file handler closed, data loaded into variables")
         ########
     print("\nWhich algorithm would you like to use?")
-    print("1. Hungarian algorithm, (||G1|-|G2||<=1)")
-    print("2. Edmond's Blossom algorithm (|G1|-|G2||>1)")
+    print("1. Hungarian algorithm, (||Group1|-|Group2||<=1)")
+    print("2. Edmond's Blossom algorithm (|Group1|-|Group2||>1)")
     try:
         new = int(input("\n[1,2] "))
     except ValueError:
