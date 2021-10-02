@@ -2,6 +2,7 @@ import json, time, excel2json, os, math
 import huAlgo as km
 import blossomAlgo as blossom
 from datetime import datetime
+
 class Values:
     version = "1.0.2"
     debug = False                               #Debug off == user-mode, Debug on debug
@@ -17,7 +18,7 @@ class Values:
     dictOfNames = {}                                #Saving the ids to the names
     matrix  = {None}                                #Matrix used in the final dump
     usedBlossom = False                             #True if the blossom algorithm was used
-    dummyMemberName = 77777                          #Checks if an dummy member was added
+    dummyMemberName = 77777                         #Checks if a dummy member was added
     #
     internationalSt = False                        #For international students -- If True than then they can be in 1 room -- If False they cant be in 1 room
     oldStudentsHall = True                         #If true "Hall" will be taken into account - If false it wont
@@ -26,7 +27,7 @@ class Values:
     memberBans = True                              #If true then members who share the same ban number will get a penalty
     memberAntiban = True                           #it should also look at whether they're not "antibanned", and only gives the penalty if they are not antibanned.
     dummyMember = True                             #Dummy member -- Set true means that the dummy will get into the smaller group -- False means it will get in the bigget group 
-    newStudentsMixedHall = False                    #New students only matched together if OK with mixed hall/ If this setting is changed to TRUE, it will add a penalty of 100000 to 
+    newStudentsMixedHall = False                   #New students only matched together if OK with mixed hall/ If this setting is changed to TRUE, it will add a penalty of 100000 to 
 
 sett = Values()                                     #Creating a global object
 def makeLog(typeOfLog = "LOG", where = "", stringToPass = "NULL", sprint = False):
@@ -804,8 +805,8 @@ def announceSettings():
     print(f"2. Already assigned halls will be taken into into account: {sett.oldStudentsHall} \n")
     makeLog("LOG","announceSettings()", f"Already assigned halls will be taken into into account: {sett.oldStudentsHall}")
     #
-    print(f"3. Hall preferred sex will be taken into account: {sett.mixedhalls} \n")
-    makeLog("LOG", "announceSettings()", f"Hall preferred sex will be taken into account: {sett.mixedhalls}")
+    print(f"3. Hall of preferred sex will be taken into account: {sett.mixedhalls} \n")
+    makeLog("LOG", "announceSettings()", f"Hall of preferred sex will be taken into account: {sett.mixedhalls}")
     #
     print(f"4. 2 RAs can not be roommates: {sett.raBan} \n")
     makeLog("LOG", "announceSettings()", f"2 RAs can not be roommates: {sett.raBan}")
